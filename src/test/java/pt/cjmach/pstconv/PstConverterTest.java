@@ -69,7 +69,7 @@ public class PstConverterTest {
             store.connect();
             
             // Root Folder / Inbox (in portuguese)
-            Folder inbox = store.getFolder("Inicio do ficheiro de dados do Outlook").getFolder("Caixa de Entrada");
+            Folder inbox = store.getFolder("Início do ficheiro de dados do Outlook").getFolder("Caixa de Entrada");
             inbox.open(Folder.READ_ONLY);
             
             Message[] messages = inbox.getMessages();

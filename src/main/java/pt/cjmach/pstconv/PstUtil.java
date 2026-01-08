@@ -28,11 +28,11 @@ public final class PstUtil {
     
     public static String normalizeString(String str) {
         StringBuilder builder = new StringBuilder();
-        String normalizedSubject = StringUtils.stripAccents(str);
+        //String normalizedSubject = StringUtils.stripAccents(str);
         final char[] forbidden = {'\"', '*', '/', ':', '<', '>', '?', '\\', '|'};
-        for (int i = 0; i < normalizedSubject.length(); i++) {
-            char c = normalizedSubject.charAt(i);
-            if (c >= 32 && c <= 126 && Arrays.binarySearch(forbidden, c) < 0) {
+        for (int i = 0; i < str.length(); i++) {
+            char c = str.charAt(i);
+            if (Arrays.binarySearch(forbidden, c) < 0) {
                 builder.append(c);
             } else {
                 builder.append('_');
