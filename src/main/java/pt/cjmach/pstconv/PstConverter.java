@@ -16,6 +16,7 @@
 package pt.cjmach.pstconv;
 
 import pt.cjmach.pstconv.mail.EmlStore;
+import pt.cjmach.pstconv.mail.MaildirStore;
 import com.pff.PSTAttachment;
 import com.pff.PSTException;
 import com.pff.PSTFile;
@@ -38,13 +39,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import javax.activation.DataHandler;
 import javax.activation.DataSource;
-import javax.mail.Folder;
-import javax.mail.Header;
-import javax.mail.Message;
-import javax.mail.MessagingException;
-import javax.mail.Session;
-import javax.mail.Store;
-import javax.mail.URLName;
+import javax.mail.*;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.InternetHeaders;
 import javax.mail.internet.MailDateFormat;
@@ -86,6 +81,12 @@ public class PstConverter {
                 Properties sessionProps = new Properties(System.getProperties());
                 Session session = Session.getDefaultInstance(sessionProps);
                 return new EmlStore(session, directory);
+            }
+
+            case MAILDIR: {
+                Properties sessionProps = new Properties(System.getProperties());
+                Session session = Session.getDefaultInstance(sessionProps);
+                return new MaildirStore(session, directory);
             }
 
             case MBOX: {
@@ -179,6 +180,27 @@ public class PstConverter {
      * extracted to and saved.
      * @param format The output format (MBOX or EML).
      * @param encoding The charset encoding to use for character data.
+     * @param skipEmptyFolders Do not create empty folders.
+     * @return number of successfully converted messages and the duration of the
+     * operation in milliseconds.
+     *
+     * @throws PSTException
+     * @throws MessagingException
+     * @throws IOException
+     */
+    public PstConvertResult convert(File inputFile, File outputDirectory, MailMessageFormat format, String encoding, boolean skipEmptyFolders) throws PSTException, MessagingException, IOException {
+        PSTFile pstFile = new PSTFile(inputFile); // throws FileNotFoundException is file doesn't exist.
+        return convert(pstFile, outputDirectory, format, encoding, skipEmptyFolders);
+    }
+
+    /**
+     * Converts an Outlook OST/PST file to MBox or EML format.
+     *
+     * @param inputFile The input PST file.
+     * @param outputDirectory The directory where the email messages are
+     * extracted to and saved.
+     * @param format The output format (MBOX or EML).
+     * @param encoding The charset encoding to use for character data.
      * @return number of successfully converted messages and the duration of the
      * operation in milliseconds.
      *
@@ -187,8 +209,7 @@ public class PstConverter {
      * @throws IOException
      */
     public PstConvertResult convert(File inputFile, File outputDirectory, MailMessageFormat format, String encoding) throws PSTException, MessagingException, IOException {
-        PSTFile pstFile = new PSTFile(inputFile); // throws FileNotFoundException is file doesn't exist.
-        return convert(pstFile, outputDirectory, format, encoding);
+        return convert(inputFile, outputDirectory, format, encoding, false);
     }
 
     /**
@@ -199,13 +220,14 @@ public class PstConverter {
      * extracted to and saved.
      * @param format The output format (MBOX or EML).
      * @param encoding The charset encoding to use for character data.
+     * @param skipEmptyFolders Do not create empty folders.
      * @return number of successfully converted messages.
      *
      * @throws PSTException
      * @throws MessagingException
      * @throws IOException
      */
-    public PstConvertResult convert(PSTFile pstFile, File outputDirectory, MailMessageFormat format, String encoding) throws PSTException, MessagingException, IOException {
+    public PstConvertResult convert(PSTFile pstFile, File outputDirectory, MailMessageFormat format, String encoding, boolean skipEmptyFolders) throws PSTException, MessagingException, IOException {
         if (outputDirectory.exists() && !outputDirectory.isDirectory()) {
             throw new IllegalArgumentException(String.format("Not a directory: %s.", outputDirectory.getAbsolutePath()));
         }
@@ -228,7 +250,7 @@ public class PstConverter {
             store.connect();
             Folder rootFolder = store.getDefaultFolder();
             PSTFolder pstRootFolder = pstFile.getRootFolder();
-            messageCount = convert(pstRootFolder, rootFolder, "\\", charset);
+            messageCount = convert(pstRootFolder, rootFolder, "\\", charset, skipEmptyFolders);
             watch.stop();
         } catch (PSTException | MessagingException | IOException ex) {
             logger.error("Failed to convert PSTFile object.", ex);
@@ -244,6 +266,24 @@ public class PstConverter {
     }
 
     /**
+     * Converts an Outlook OST/PST file to MBox or EML format.
+     *
+     * @param pstFile The input PST file.
+     * @param outputDirectory The directory where the email messages are
+     * extracted to and saved.
+     * @param format The output format (MBOX or EML).
+     * @param encoding The charset encoding to use for character data.
+     * @return number of successfully converted messages.
+     *
+     * @throws PSTException
+     * @throws MessagingException
+     * @throws IOException
+     */
+    public PstConvertResult convert(PSTFile pstFile, File outputDirectory, MailMessageFormat format, String encoding) throws PSTException, MessagingException, IOException {
+        return convert(pstFile, outputDirectory, format, encoding, false);
+    }
+
+    /**
      * Traverses all PSTFolders recursively, starting from the root PSTFolder,
      * and extracts all email messages to a javax.mail.Folder.
      *
@@ -251,12 +291,13 @@ public class PstConverter {
      * @param mailFolder
      * @param path
      * @param charset
+     * @param skipEmptyFolders
      * @return
      * @throws PSTException
      * @throws IOException
      * @throws MessagingException
      */
-    long convert(PSTFolder pstFolder, Folder mailFolder, String path, Charset charset) throws PSTException, IOException, MessagingException {
+    long convert(PSTFolder pstFolder, Folder mailFolder, String path, Charset charset, boolean skipEmptyFolders) throws PSTException, IOException, MessagingException {
         long messageCount = 0;
         if (pstFolder.getContentCount() > 0) {
             PSTObject child = pstFolder.getNextChild();
@@ -307,6 +348,9 @@ public class PstConverter {
         }
         if (pstFolder.hasSubfolders()) {
             for (PSTFolder pstSubFolder : pstFolder.getSubFolders()) {
+                if (skipEmptyFolders && !hasMessages(pstSubFolder)) {
+                    continue;
+                }
                 String folderName = PstUtil.normalizeString(pstSubFolder.getDisplayName());
                 String subPath = path + "\\" + folderName;
                 Folder mboxSubFolder = mailFolder.getFolder(folderName);
@@ -317,11 +361,50 @@ public class PstConverter {
                     }
                 }
                 mboxSubFolder.open(Folder.READ_WRITE);
-                messageCount += convert(pstSubFolder, mboxSubFolder, subPath, charset);
+                messageCount += convert(pstSubFolder, mboxSubFolder, subPath, charset, skipEmptyFolders);
                 mboxSubFolder.close(false);
             }
         }
         return messageCount;
+    }
+
+    /**
+     * Recursively checks if a PST folder or its subfolders contain any messages.
+     *
+     * @param pstFolder The PST folder to check.
+     * @return true if the folder or any of its subfolders contain messages, false otherwise.
+     * @throws PSTException
+     * @throws IOException
+     */
+    private boolean hasMessages(PSTFolder pstFolder) throws PSTException, IOException {
+        if (pstFolder.getContentCount() > 0) {
+            return true;
+        }
+        if (pstFolder.hasSubfolders()) {
+            for (PSTFolder subFolder : pstFolder.getSubFolders()) {
+                if (hasMessages(subFolder)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Traverses all PSTFolders recursively, starting from the root PSTFolder,
+     * and extracts all email messages to a javax.mail.Folder.
+     *
+     * @param pstFolder
+     * @param mailFolder
+     * @param path
+     * @param charset
+     * @return
+     * @throws PSTException
+     * @throws IOException
+     * @throws MessagingException
+     */
+    long convert(PSTFolder pstFolder, Folder mailFolder, String path, Charset charset) throws PSTException, IOException, MessagingException {
+        return convert(pstFolder, mailFolder, path, charset, false);
     }
 
     /**
@@ -343,6 +426,23 @@ public class PstConverter {
         convertMessageHeaders(message, mimeMessage, charset);
         // Add custom header to easily track the original message from OST/PST file.
         mimeMessage.addHeader(DESCRIPTOR_ID_HEADER, Long.toString(message.getDescriptorNodeId()));
+        
+        // Add flags to MimeMessage
+        if (message.isRead()) {
+            mimeMessage.setFlag(javax.mail.Flags.Flag.SEEN, true);
+        }
+        if (message.hasReplied()) {
+            mimeMessage.setFlag(javax.mail.Flags.Flag.ANSWERED, true);
+        }
+        if (message.hasForwarded()) {
+            // There is no standard flag for forwarded in javax.mail.Flags.Flag
+            // We can use a user flag or a custom header. 
+            // Maildir uses 'P' for passed (forwarded).
+            mimeMessage.setFlags(new javax.mail.Flags("Passed"), true);
+        }
+        if (message.isFlagged()) {
+            mimeMessage.setFlag(javax.mail.Flags.Flag.FLAGGED, true);
+        }
 
         MimeMultipart rootMultipart = new MimeMultipart();
         convertMessageBody(message, rootMultipart);

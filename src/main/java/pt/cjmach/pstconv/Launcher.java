@@ -33,7 +33,7 @@ import picocli.CommandLine.Option;
  * @author cmachado
  */
 @Command(name = "pstconv", 
-        description = "Converts a Microsoft Outlook OST/PST file to EML/MBOX format.")
+        description = "Converts a Microsoft Outlook OST/PST file to EML/MBOX/MAILDIR format.")
 public class Launcher implements Callable<Integer> {
     /**
      * 
@@ -67,6 +67,11 @@ public class Launcher implements Callable<Integer> {
     /**
      * 
      */
+    @Option(names = {"-s", "--skip-empty"}, description = "Do not create empty folders.")
+    private boolean skipEmptyFolders = false;
+    /**
+     * 
+     */
     @Option(names = {"-v", "--version"}, versionHelp = true, description = "Print version and exit.")
     @SuppressWarnings("FieldMayBeFinal")
     private boolean versionRequested = false;
@@ -86,7 +91,7 @@ public class Launcher implements Callable<Integer> {
     public Integer call() throws Exception {
         PstConverter converter = new PstConverter();
         try {
-            PstConvertResult result = converter.convert(inputFile, outputDirectory, outputFormat, encoding);
+            PstConvertResult result = converter.convert(inputFile, outputDirectory, outputFormat, encoding, skipEmptyFolders);
             logger.info("Finished! Converted {} messages in {} seconds.", result.getMessageCount(), result.getDurationInMillis() / 1000.0);
         } catch (PSTException | MessagingException | IOException ex) {
             return 1;

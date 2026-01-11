@@ -21,7 +21,8 @@ package pt.cjmach.pstconv;
  */
 public enum MailMessageFormat {
     MBOX("mbox"), // NOI18N
-    EML("eml"); // NOI18N
+    EML("eml"), // NOI18N
+    MAILDIR("maildir"); // NOI18N
 
     public final String format;
 

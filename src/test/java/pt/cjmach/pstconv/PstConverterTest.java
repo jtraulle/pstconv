@@ -114,6 +114,61 @@ public class PstConverterTest {
     public void testConvertInputFileSuccess() {
         testConvertInputFile(MailMessageFormat.EML);
         testConvertInputFile(MailMessageFormat.MBOX);
+        testConvertInputFile(MailMessageFormat.MAILDIR);
+    }
+
+    @Test
+    public void testConvertSkipEmptyFolders() {
+        File inputFile = new File("src/test/resources/pt/cjmach/pstconv/outlook.pst");
+        File outputDirectory = new File("mailbox-skip-empty");
+        MailMessageFormat format = MailMessageFormat.EML;
+        String encoding = StandardCharsets.ISO_8859_1.name();
+        
+        try {
+            // First convert without skipping empty folders to see what we have
+            PstConvertResult resultNormal = instance.convert(inputFile, outputDirectory, format, encoding, false);
+            
+            Store storeNormal = instance.createStore(outputDirectory, format, encoding);
+            storeNormal.connect();
+            Folder rootNormal = storeNormal.getDefaultFolder();
+            int folderCountNormal = countFolders(rootNormal);
+            storeNormal.close();
+            FileUtils.deleteDirectory(outputDirectory);
+
+            // Then convert with skipping empty folders
+            PstConvertResult resultSkip = instance.convert(inputFile, outputDirectory, format, encoding, true);
+            
+            Store storeSkip = instance.createStore(outputDirectory, format, encoding);
+            storeSkip.connect();
+            Folder rootSkip = storeSkip.getDefaultFolder();
+            int folderCountSkip = countFolders(rootSkip);
+            storeSkip.close();
+            
+            assertTrue(folderCountSkip < folderCountNormal, "Expected fewer folders when skipping empty ones. Normal: " + folderCountNormal + ", Skip: " + folderCountSkip);
+            // In outlook.pst, there are some empty folders like "Contactos", "Calendário", etc.
+            // Let's check specifically for "Caixa de Entrada" which should exist.
+            Store storeVerify = instance.createStore(outputDirectory, format, encoding);
+            storeVerify.connect();
+            Folder rootFolder = storeVerify.getFolder("Início do ficheiro de dados do Outlook");
+            Folder inbox = rootFolder.getFolder("Caixa de Entrada");
+            assertTrue(inbox.exists(), "Inbox should exist as it contains messages.");
+            storeVerify.close();
+
+        } catch (Exception ex) {
+            fail(ex);
+        } finally {
+            try {
+                FileUtils.deleteDirectory(outputDirectory);
+            } catch (IOException ignore) { }
+        }
+    }
+
+    private int countFolders(Folder folder) throws MessagingException {
+        int count = 1;
+        for (Folder subFolder : folder.list()) {
+            count += countFolders(subFolder);
+        }
+        return count;
     }
 
     /**
