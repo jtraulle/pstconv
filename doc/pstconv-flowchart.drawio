@@ -1,1 +1,110 @@
-<mxfile host="app.diagrams.net" modified="2022-11-01T18:41:29.132Z" agent="5.0 (X11)" etag="DLnFoZvQPXiL3EjWGxwk" version="20.5.1" type="device"><diagram id="zZsEvJfzJZrZ1F5NtRnT" name="Página-1">7VvbbuM2EP0aA+3DGrKu1mNu26JImjRpsZungpFomQklGhQd2/36khR1oSUnstc2k02AIBCHQ4qXOTNnSHngnKXL3yiYTa9IDPHAtuLlwDkf2PbIte2B+LPiVSEJwrAQJBTFSqkW3KH/oBJaSjpHMcw1RUYIZmimCyOSZTBimgxQSha62oRg/a0zkMCW4C4CuC39hmI2LaRjO6jlv0OUTMs3j3w1vxSUymom+RTEZNEQORcD54wSwoqndHkGsVi8cl2Kdl831FYDozBjfRo8xu4f9Onq/K9reBnc/hOFKy//YjtqcGxVzhjGfAFUkVA2JQnJAL6opaeUzLMYim4tXqp1LgmZceGICx8hYyu1m2DOCBdNWYpVLVwi9l00H3qqdN+oOV+qnmVh1SjcQIpSyCAtZRmjq0ZHonjfrKu7kqWyr2LOYqIb11KJcjKnEXxpAdXuMkATyF5StKs952CBhM+DrnhDCjFg6FkfCVBWm1R69cbyB7W32+yzGuYzwHP1qtt5JuacMw6d55YV5IySp8rkbX3/uCnPhF66TATqhxNMFtEUUDbM+Tqwf4XOYooYvJsBuXoLrsZlE4TxGcFE7F9GMlhtxTOkDC5f3oz20qkGjqcmp1yMq4qLGq8jR8mmDaz61qEW2zcBqn0atd3XqF2jRm23jHpg+5gP+DRG3KT9RDzeAJpDGSHSFGRxqcHf2FDqaIdRBmUQSeYpX8F8U8N14Chs8HUHGENMOETSNfi0sDVrODatYcPjdSKqthrRMaCRMo+R6DUvnq0h9/IHA58baOCrkKahzz8i+py2q7u4ujQS5nYMTxVTkIUnyKKpKmDwAPEpiJ4SObi17ZS1NyRHDJGMiyPerbQcscOIc5rLNQUmJnIKMEo61U9UxQNhjKR7djFuXxcTmHQxzqhlTFen199Nkqby+V4jUIcnTR/R9kKj4c3tE96u52w2Z72j2oRQnpkMnK9l3QNd134twO3GDGMYoVxu/TGpYeBr0alKxhrRKRi3g1Mp278/MZNvVZDXAF/jfwPkZanlP3ZI3vYJ3qAneB2zCVfQB7xnFAImWKZkKNYdIxT2hvIvj+AZLIcpQHgoW/66M6Z1GtmFz4Y1gYec4DmDJzXb1Lmn28lxD4PwKtsrER6O2/xz1JX9jbj9HgjkrlGQj34CkIfvA+ThViAvmOMnyrdHuTt+gygP3lNOuUdwOn1Ph4q031jq1nU6tLZhm5KTKutYT0eKrKUX4RUQOBStHXsaHJygTWv9Y554umYi3i7XCG8AP35P/LhGg1s5zFfSzxkU1wjXd3/zl9yI/1b/+NTOThHeGBk/z1mbkHc7IH/cc1bPyC3HG8Cv2/fKz/NM4tdtn4N3kVOSCbsU0yGConIUXME8F7fiuzBUJI7xMsg+Ikl1fJ2k+l0QPTJJdb2PCtK+JNW1ujf1SCDtIqkthN1CEHMlGV57gjLVQbz9Ke/HDq+e8fDqt933n8QomLc8V9ruvogWS7rxuihFcSznU94YYThp6pcJWqW3T19yNMIum55QClYNhRlB8vODqucbIaht11s7Ag2tsGl9r+r7lrVmrcUIatutpvID5tzOJu5hbsSeDX981nneenA4vIxGE2DxzbLjXtnthfheyCKTH8tqi7RY5rYf9N513BFOj3rv6o3fEw/udBF7xKjn9Q1oRk9wy2G+jNFvFLH+yaqW4Mqct2dD7dbmk05vR6cD83T60wG0Ym+fIG306zu/7QDUeRUUcVmcOD2QJX+KEYURB+hqb1GTRPKrX3sDwmoQeQc8T9JvecKwA0TWMa95/PZHLZIh7WfNuaWnKAOMbHJrx1nmkTU+3DrzYv2LnyK3qn835Vz8Dw==</diagram></mxfile>
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (X11; Linux x86_64; rv:146.0) Gecko/20100101 Firefox/146.0" version="29.3.0">
+  <diagram id="zZsEvJfzJZrZ1F5NtRnT" name="Página-1">
+    <mxGraphModel dx="1426" dy="783" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-23" edge="1" parent="1" source="jd4JrkMDQOeL7RUc9y5s-20" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="jd4JrkMDQOeL7RUc9y5s-22">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-20" parent="1" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.start_1;whiteSpace=wrap;fillColor=none;" value="Run pstconv" vertex="1">
+          <mxGeometry height="60" width="130" x="350" y="21" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-26" edge="1" parent="1" source="jd4JrkMDQOeL7RUc9y5s-22" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="jd4JrkMDQOeL7RUc9y5s-24">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-22" parent="1" style="shape=parallelogram;html=1;strokeWidth=2;perimeter=parallelogramPerimeter;whiteSpace=wrap;rounded=1;arcSize=12;size=0.23;fillColor=none;" value="&lt;div&gt;Parse command&lt;/div&gt;&lt;div&gt;line arguments&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="136" x="347" y="111" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-30" edge="1" parent="1" source="jd4JrkMDQOeL7RUc9y5s-24" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;shadow=0;sketch=0;labelBackgroundColor=none;labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;" target="jd4JrkMDQOeL7RUc9y5s-27" value="EML">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-31" edge="1" parent="1" source="jd4JrkMDQOeL7RUc9y5s-24" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;labelBackgroundColor=none;labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;" target="jd4JrkMDQOeL7RUc9y5s-29" value="MBOX">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="xYE4nsGz6JrcKlIUMyae-1" edge="1" parent="1" source="jd4JrkMDQOeL7RUc9y5s-24" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="maildir-store-node">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="xYE4nsGz6JrcKlIUMyae-2" connectable="0" parent="xYE4nsGz6JrcKlIUMyae-1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="MAILDIR" vertex="1">
+          <mxGeometry relative="1" x="-0.4286" y="-1" as="geometry">
+            <mxPoint x="26" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-24" parent="1" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.decision;whiteSpace=wrap;fillColor=none;" value="&lt;div&gt;Output&lt;/div&gt;&lt;div&gt;format?&lt;br&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="78" width="78" x="376" y="201" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-33" edge="1" parent="1" source="jd4JrkMDQOeL7RUc9y5s-27" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="jd4JrkMDQOeL7RUc9y5s-32">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-27" parent="1" style="rounded=1;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=14;strokeWidth=2;fillColor=none;" value="&lt;div&gt;Create EML Store&lt;/div&gt;&lt;div&gt;(javax.mail.Store)&lt;br&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="61.5" width="110" x="210" y="317" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-34" edge="1" parent="1" source="jd4JrkMDQOeL7RUc9y5s-29" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="jd4JrkMDQOeL7RUc9y5s-32">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-29" parent="1" style="rounded=1;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=14;strokeWidth=2;fillColor=none;" value="&lt;div&gt;Create MBOX Store&lt;/div&gt;&lt;div&gt;(javax.mail.Store)&lt;br&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="61.5" width="110" x="510" y="317" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-37" edge="1" parent="1" source="jd4JrkMDQOeL7RUc9y5s-32" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="jd4JrkMDQOeL7RUc9y5s-36">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-32" parent="1" style="verticalLabelPosition=bottom;verticalAlign=top;html=1;shape=mxgraph.flowchart.or;fillColor=none;" value="" vertex="1">
+          <mxGeometry height="60" width="60" x="385" y="406" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-44" edge="1" parent="1" source="jd4JrkMDQOeL7RUc9y5s-36" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="jd4JrkMDQOeL7RUc9y5s-42">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-36" parent="1" style="shape=parallelogram;html=1;strokeWidth=2;perimeter=parallelogramPerimeter;whiteSpace=wrap;rounded=1;arcSize=12;size=0.23;fillColor=none;" value="&lt;div&gt;Open OST/PST &lt;br&gt;&lt;/div&gt;&lt;div&gt;file&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="136" x="347" y="489" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-56" edge="1" parent="1" source="jd4JrkMDQOeL7RUc9y5s-40" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="jd4JrkMDQOeL7RUc9y5s-55">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-40" parent="1" style="rounded=1;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=14;strokeWidth=2;fillColor=none;" value="&lt;div&gt;Convert to MimeMessage&lt;/div&gt;&lt;div&gt;(javax.mail.internet)&lt;br&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="61.5" width="110" x="360" y="689" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-45" edge="1" parent="1" source="jd4JrkMDQOeL7RUc9y5s-42" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="jd4JrkMDQOeL7RUc9y5s-40">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-42" parent="1" style="shape=parallelogram;html=1;strokeWidth=2;perimeter=parallelogramPerimeter;whiteSpace=wrap;rounded=1;arcSize=12;size=0.23;fillColor=none;" value="&lt;div&gt;Read PST&lt;/div&gt;&lt;div&gt;message&lt;br&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="136" x="347" y="589" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-60" edge="1" parent="1" source="jd4JrkMDQOeL7RUc9y5s-46" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" target="jd4JrkMDQOeL7RUc9y5s-42" value="No">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="540" y="928" />
+              <mxPoint x="540" y="619" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-66" edge="1" parent="1" source="jd4JrkMDQOeL7RUc9y5s-46" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;labelBackgroundColor=none;" target="jd4JrkMDQOeL7RUc9y5s-65" value="Yes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-46" parent="1" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.decision;whiteSpace=wrap;fillColor=none;" value="&lt;div&gt;End of &lt;br&gt;&lt;/div&gt;&lt;div&gt;PST file?&lt;br&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="78" width="78" x="376" y="889" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-58" edge="1" parent="1" source="jd4JrkMDQOeL7RUc9y5s-55" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" target="jd4JrkMDQOeL7RUc9y5s-46">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-55" parent="1" style="shape=parallelogram;html=1;strokeWidth=2;perimeter=parallelogramPerimeter;whiteSpace=wrap;rounded=1;arcSize=12;size=0.23;fillColor=none;" value="&lt;div&gt;Write&lt;/div&gt;&lt;div&gt;MimeMessage to&lt;/div&gt;&lt;div&gt;Store&lt;br&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="136" x="347" y="789" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-68" edge="1" parent="1" source="jd4JrkMDQOeL7RUc9y5s-65" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" target="jd4JrkMDQOeL7RUc9y5s-67">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-65" parent="1" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.document2;whiteSpace=wrap;size=0.25;fillColor=none;" value="Converted mailbox directory" vertex="1">
+          <mxGeometry height="60" width="100" x="365" y="1009" as="geometry" />
+        </mxCell>
+        <mxCell id="jd4JrkMDQOeL7RUc9y5s-67" parent="1" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.terminator;whiteSpace=wrap;fillColor=none;" value="End" vertex="1">
+          <mxGeometry height="60" width="100" x="365" y="1099" as="geometry" />
+        </mxCell>
+        <mxCell id="maildir-store-node" parent="1" style="rounded=1;whiteSpace=wrap;html=1;absoluteArcSize=1;arcSize=14;strokeWidth=2;fillColor=none;" value="&lt;div&gt;Create MAILDIR Store&lt;/div&gt;&lt;div&gt;(javax.mail.Store)&lt;/div&gt;" vertex="1">
+          <mxGeometry height="61.5" width="130" x="350" y="317" as="geometry" />
+        </mxCell>
+        <mxCell id="maildir-to-or-edge" edge="1" parent="1" source="maildir-store-node" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="jd4JrkMDQOeL7RUc9y5s-32">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,7 +1,7 @@
 # pstconv
 
 A java command line tool to convert proprietary Microsoft Outlook OST/PST files 
-to EML or MBOX format, even if the file is password protected. OST/PST content is parsed and extracted with [java-libpst](https://github.com/rjohnsondev/java-libpst) library.
+to EML, MBOX or MAILDIR format, even if the file is password protected. OST/PST content is parsed and extracted with [java-libpst](https://github.com/rjohnsondev/java-libpst) library.
 
 
 
@@ -16,19 +16,20 @@ usage: java -jar pstconv.jar [OPTIONS]
  -e,--encoding <ENCODING>   Encoding to use for reading character data.
                             Default is ISO-8859-1.
  -f,--format <FORMAT>       Convert input file to one of the following
-                            formats: mbox, eml. Default is mbox.
+                            formats: mbox, eml, maildir. Default is mbox.
  -h,--help                  Print help and exit.
  -i,--input <FILE>          Path to OST/PST input file. Required option.
- -o,--output <DIRECTORY>    Path to MBOX/EML output directory. If it
+ -o,--output <DIRECTORY>    Path to MBOX/EML/MAILDIR output directory. If it
                             doesn't exist, the application will attempt to
                             create it. Required option.
+ -s,--skip-empty            Do not create empty folders.
  -v,--version               Print version and exit.
 ```
 
-For example, the following command will convert File01.pst to MBOX format, saving the results to a directory named 'mailbox':
+For example, the following command will convert File01.pst to MBOX format, saving the results to a directory named 'mailbox' and skipping empty folders:
 
 ```console
-$ java -jar pstconv.jar -i File01.pst -o mailbox
+$ java -jar pstconv.jar -i File01.pst -o mailbox --skip-empty
 ```
 
 After the conversion is finished, you can use a free software like [Mozilla Thunderbird](https://www.thunderbird.net/) in combination with [ImportExportTools NG](https://addons.thunderbird.net/en-US/thunderbird/addon/importexporttools-ng/) add-on to import the 'mailbox' directory to the e-mail client mailbox and view the converted messages. According to ImportExportTools NG [plugin documentation](https://github.com/thundernest/import-export-tools-ng#features), the import should work with either MBOX or EML formats, but we only tested it with MBOX:
@@ -100,7 +101,7 @@ We have randomly selected 12 PST files from real forensic cases with sizes rangi
 | File12.pst | 3477      | 3451      | 762.4          | 4.5            |
 | **Total**  | **16072** | **36081** | **3464.2**     | **12.1 (avg)** |
 
-The performance results show that converting a PST file to MBOX format is about 6.5 times faster than converting to EML format.
+The performance results show that converting a PST file to MBOX format is about 6.5 times faster than converting to EML format. We haven't benchmarked the MAILDIR format yet.
 
 # Building
 
