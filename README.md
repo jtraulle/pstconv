@@ -22,14 +22,16 @@ usage: java -jar pstconv.jar [OPTIONS]
  -o,--output <DIRECTORY>    Path to MBOX/EML/MAILDIR output directory. If it
                             doesn't exist, the application will attempt to
                             create it. Required option.
+ -r,--rename-folder <OLD=NEW> Rename folder OLD to NEW in output. Can be
+                            used multiple times.
  -s,--skip-empty            Do not create empty folders.
  -v,--version               Print version and exit.
 ```
 
-For example, the following command will convert File01.pst to MBOX format, saving the results to a directory named 'mailbox' and skipping empty folders:
+For example, the following command will convert File01.pst to MAILDIR format, saving the results to a directory named 'mailbox', renaming "Boîte de réception" to "Inbox" and "Eléments envoyés" to "Sent", and skipping empty folders:
 
 ```console
-$ java -jar pstconv.jar -i File01.pst -o mailbox --skip-empty
+$ java -jar pstconv.jar -f MAILDIR -i File01.pst -o mailbox -r "Boîte de réception=Inbox" -r "Eléments envoyés=Sent" --skip-empty
 ```
 
 After the conversion is finished, you can use a free software like [Mozilla Thunderbird](https://www.thunderbird.net/) in combination with [ImportExportTools NG](https://addons.thunderbird.net/en-US/thunderbird/addon/importexporttools-ng/) add-on to import the 'mailbox' directory to the e-mail client mailbox and view the converted messages. According to ImportExportTools NG [plugin documentation](https://github.com/thundernest/import-export-tools-ng#features), the import should work with either MBOX or EML formats, but we only tested it with MBOX:

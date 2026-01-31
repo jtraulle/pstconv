@@ -32,8 +32,10 @@ import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.nio.charset.CoderResult;
 import java.nio.charset.MalformedInputException;
+import java.util.Collections;
 import java.util.Date;
 import java.util.Enumeration;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
@@ -63,6 +65,9 @@ public class PstConverter {
 
     private static final Logger logger = LoggerFactory.getLogger(PstConverter.class);
     private static final MailDateFormat RFC822_DATE_FORMAT = new MailDateFormat();
+    
+    private Map<String, String> folderNamesMap = Collections.emptyMap();
+
     /**
      * Name of the custom header added to each converted message to allow to
      * easily trace back the original message from OST/PST file.
@@ -73,6 +78,19 @@ public class PstConverter {
      * Default constructor.
      */
     public PstConverter() {
+    }
+
+    /**
+     * Set the folder names map.
+     * 
+     * @param folderNamesMap 
+     */
+    public void setFolderNamesMap(Map<String, String> folderNamesMap) {
+        if (folderNamesMap == null) {
+            this.folderNamesMap = Collections.emptyMap();
+        } else {
+            this.folderNamesMap = folderNamesMap;
+        }
     }
 
     Store createStore(File directory, MailMessageFormat format, String encoding) {
@@ -351,7 +369,11 @@ public class PstConverter {
                 if (skipEmptyFolders && !hasMessages(pstSubFolder)) {
                     continue;
                 }
-                String folderName = PstUtil.normalizeString(pstSubFolder.getDisplayName());
+                String folderName = pstSubFolder.getDisplayName();
+                if (folderNamesMap.containsKey(folderName)) {
+                    folderName = folderNamesMap.get(folderName);
+                }
+                folderName = PstUtil.normalizeString(folderName);
                 String subPath = path + "\\" + folderName;
                 Folder mboxSubFolder = mailFolder.getFolder(folderName);
                 if (!mboxSubFolder.exists()) {

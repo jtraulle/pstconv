@@ -21,6 +21,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import javax.mail.Address;
 import javax.mail.Folder;
 import javax.mail.Message;
@@ -222,5 +223,47 @@ public class PstConverterTest {
         String encoding = "invalid encoding";
         IllegalArgumentException iae = assertThrows(IllegalArgumentException.class, () -> instance.convert(inputFile, outputDirectory, format, encoding));
         assertEquals(encoding, iae.getMessage());
+    }
+
+    @Test
+    public void testConvertRenameFolders() {
+        File inputFile = new File("src/test/resources/pt/cjmach/pstconv/outlook.pst");
+        File outputDirectory = new File("mailbox-rename");
+        MailMessageFormat format = MailMessageFormat.EML;
+        String encoding = StandardCharsets.ISO_8859_1.name();
+        
+        // Rename "Caixa de Entrada" to "Inbox"
+        instance.setFolderNamesMap(Collections.singletonMap("Caixa de Entrada", "Inbox"));
+        
+        try {
+            instance.convert(inputFile, outputDirectory, format, encoding, false);
+            
+            Store store = instance.createStore(outputDirectory, format, encoding);
+            store.connect();
+            Folder defaultFolder = store.getDefaultFolder();
+            
+            Folder rootFolder = null;
+            for (Folder f : defaultFolder.list()) {
+                if (f.getName().equals("Início do ficheiro de dados do Outlook")) {
+                    rootFolder = f;
+                    break;
+                }
+            }
+            assertNotNull(rootFolder, "Root folder not found");
+            
+            Folder inboxRenamed = rootFolder.getFolder("Inbox");
+            assertTrue(inboxRenamed.exists(), "Folder 'Caixa de Entrada' should have been renamed to 'Inbox'");
+            
+            Folder oldInbox = rootFolder.getFolder("Caixa de Entrada");
+            assertFalse(oldInbox.exists(), "Folder 'Caixa de Entrada' should no longer exist under that name");
+            
+            store.close();
+        } catch (Exception ex) {
+            fail(ex);
+        } finally {
+            try {
+                FileUtils.deleteDirectory(outputDirectory);
+            } catch (IOException ignore) { }
+        }
     }
 }

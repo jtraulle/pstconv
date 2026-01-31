@@ -18,6 +18,7 @@ package pt.cjmach.pstconv;
 import com.pff.PSTException;
 import java.io.File;
 import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
@@ -72,6 +73,12 @@ public class Launcher implements Callable<Integer> {
     /**
      * 
      */
+    @Option(names = {"-r", "--rename-folder"}, paramLabel = "OLD=NEW", 
+            description = "Rename folder OLD to NEW in output. Can be used multiple times.")
+    private Map<String, String> folderNamesMap;
+    /**
+     * 
+     */
     @Option(names = {"-v", "--version"}, versionHelp = true, description = "Print version and exit.")
     @SuppressWarnings("FieldMayBeFinal")
     private boolean versionRequested = false;
@@ -90,6 +97,9 @@ public class Launcher implements Callable<Integer> {
     @Override
     public Integer call() throws Exception {
         PstConverter converter = new PstConverter();
+        if (folderNamesMap != null) {
+            converter.setFolderNamesMap(folderNamesMap);
+        }
         try {
             PstConvertResult result = converter.convert(inputFile, outputDirectory, outputFormat, encoding, skipEmptyFolders);
             logger.info("Finished! Converted {} messages in {} seconds.", result.getMessageCount(), result.getDurationInMillis() / 1000.0);
