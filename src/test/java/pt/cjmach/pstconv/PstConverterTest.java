@@ -202,6 +202,52 @@ public class PstConverterTest {
         }
     }
 
+    @Test
+    public void testConvertMaildirTimestampAndModificationDate() {
+        File inputFile = new File("src/test/resources/pt/cjmach/pstconv/outlook.pst");
+        File outputDirectory = new File("target/test-maildir-timestamp");
+        MailMessageFormat format = MailMessageFormat.MAILDIR;
+        String encoding = StandardCharsets.ISO_8859_1.name();
+        
+        try {
+            PstConvertResult result = instance.convert(inputFile, outputDirectory, format, encoding);
+            assertTrue(result.getMessageCount() > 0);
+            
+            // Check file names and modification dates in the output directory
+            // We know the structure from other tests: target/test-maildir-timestamp/Início do ficheiro de données do Outlook/Caixa de Entrada/cur/
+            File inboxCurDir = new File(outputDirectory, "Início do ficheiro de données do Outlook/Caixa de Entrada/cur");
+            if (!inboxCurDir.exists()) {
+                 // Try another path if the above is wrong (depends on how normalizeString works)
+                 inboxCurDir = new File(outputDirectory, "Início do ficheiro de dados do Outlook/Caixa de Entrada/cur");
+            }
+            
+            assertTrue(inboxCurDir.exists(), "Inbox cur directory not found: " + inboxCurDir.getAbsolutePath());
+            File[] files = inboxCurDir.listFiles();
+            assertNotNull(files);
+            assertTrue(files.length > 0);
+            
+            for (File f : files) {
+                String name = f.getName();
+                long timestampFromName = Long.parseLong(name.split("\\.")[0]);
+                long lastModified = f.lastModified();
+                
+                // The timestamp in the name should be the same as the last modified date
+                assertEquals(timestampFromName, lastModified, "File " + name + " has inconsistent timestamp and modification date.");
+                
+                // And it should not be "now" (approximately)
+                long now = System.currentTimeMillis();
+                assertTrue(now - lastModified > 1000, "File " + name + " seems to have current time instead of delivery time.");
+            }
+            
+        } catch (Exception ex) {
+            fail(ex);
+        } finally {
+            try {
+                FileUtils.deleteDirectory(outputDirectory);
+            } catch (IOException ignore) { }
+        }
+    }
+
     private int countFolders(Folder folder) throws MessagingException {
         int count = 1;
         for (Folder subFolder : folder.list()) {

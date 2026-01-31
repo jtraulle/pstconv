@@ -1,5 +1,5 @@
 /*
- *  Copyright 2022-2026 Carlos Machado
+ *  Copyright 2026 Jean Traullé
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -26,10 +26,6 @@ import javax.mail.MessagingException;
 import javax.mail.Store;
 import javax.mail.internet.MimeMessage;
 
-/**
- *
- * @author cmachado
- */
 public class MaildirFolder extends LocalFolder {
 
     private static final FileFilter MAILDIR_FILE_FILTER = (File pathname) -> {
@@ -76,6 +72,11 @@ public class MaildirFolder extends LocalFolder {
         if (!tmpFile.renameTo(curFile)) {
              throw new MessagingException("Failed to move message from tmp/ to cur/");
         }
+
+        // Set the file modification time to the message delivery time, if available.
+        String[] deliveryTimeHeader = msg.getHeader("X-PST-Delivery-Time");
+        long timestamp = Long.parseLong(deliveryTimeHeader[0]);
+        curFile.setLastModified(timestamp);
     }
 
     @Override
@@ -106,9 +107,11 @@ public class MaildirFolder extends LocalFolder {
     }
 
     static String getMaildirFileName(Message msg, String descriptorIndex) throws MessagingException {
-        String subject = msg.getSubject();
+        String[] deliveryTimeHeader = msg.getHeader("X-PST-Delivery-Time");
+        long timestamp = Long.parseLong(deliveryTimeHeader[0]);
+        
         StringBuilder builder = new StringBuilder();
-        builder.append(System.currentTimeMillis()).append(".");
+        builder.append(timestamp).append(".");
         builder.append(descriptorIndex);
         
         // Maildir info/flags

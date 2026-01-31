@@ -1,5 +1,5 @@
 /*
- *  Copyright 2022-2026 Carlos Machado
+ *  Copyright 2026 Jean Traullé
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -22,10 +22,6 @@ import javax.mail.Session;
 import javax.mail.Store;
 import javax.mail.URLName;
 
-/**
- *
- * @author cmachado
- */
 public class MaildirStore extends Store {
     private final MaildirFolder rootFolder;
 

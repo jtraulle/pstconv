@@ -73,6 +73,7 @@ public class PstConverter {
      * easily trace back the original message from OST/PST file.
      */
     public static final String DESCRIPTOR_ID_HEADER = "X-Outlook-Descriptor-Id"; // NOI18N
+    public static final String DELIVERY_TIME_HEADER = "X-PST-Delivery-Time"; // NOI18N
 
     /**
      * Default constructor.
@@ -448,6 +449,7 @@ public class PstConverter {
         convertMessageHeaders(message, mimeMessage, charset);
         // Add custom header to easily track the original message from OST/PST file.
         mimeMessage.addHeader(DESCRIPTOR_ID_HEADER, Long.toString(message.getDescriptorNodeId()));
+        mimeMessage.addHeader(DELIVERY_TIME_HEADER, Long.toString(extractInternalDate(message).getTime()));
         
         // Add flags to MimeMessage
         if (message.isRead()) {
@@ -706,5 +708,48 @@ public class PstConverter {
             }
         }
         return defaultValue;
+    }
+
+    /**
+     * Extracts the most appropriate date from a PSTMessage to serve
+     * as INTERNALDATE when migrating to Maildir.
+     * Priority order:
+     * 1. MessageDeliveryTime  (Exchange reception date)
+     * 2. ClientSubmitTime     (send date, useful for "Sent" items)
+     * 3. CreationTime         (creation date in the PST)
+     * 4. Current date         (last resort)
+     */
+    public static Date extractInternalDate(PSTMessage message) {
+
+        Date date;
+
+        // 1st choice: reception date on the server
+        date = message.getMessageDeliveryTime();
+        if (isValidDate(date)) {
+            return date;
+        }
+
+        // 2nd choice: send date by the sender
+        date = message.getClientSubmitTime();
+        if (isValidDate(date)) {
+            return date;
+        }
+
+        // 3rd choice: message creation date in the PST
+        date = message.getCreationTime();
+        if (isValidDate(date)) {
+            return date;
+        }
+
+        // Last resort
+        return new Date();
+    }
+
+    /**
+     * Checks that a date is neither null nor epoch (Date(0))
+     * which is returned by getDateItem() when the data is empty.
+     */
+    private static boolean isValidDate(Date date) {
+        return date != null && date.getTime() != 0;
     }
 }
