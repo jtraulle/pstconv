@@ -90,12 +90,50 @@ public class PstConverterTest {
             String descriptorIdHeader = ((MimeMessage) messageFromAbcd).getHeader(PstConverter.DESCRIPTOR_ID_HEADER, null);
             assertEquals("2097252", descriptorIdHeader);
             
-            MimeMultipart multiPart = (MimeMultipart) messageFromAbcd.getContent();
-            MimeBodyPart bodyPart = (MimeBodyPart) multiPart.getBodyPart(0);
-            MimeMultipart bodyMultiPart = (MimeMultipart) bodyPart.getContent();
-            try (InputStream stream = bodyMultiPart.getBodyPart(0).getInputStream()) {
-                String content = IOUtils.toString(stream, StandardCharsets.US_ASCII.name());
+            MimeMessage mimeMsg = (MimeMessage) messageFromAbcd;
+            Object content = mimeMsg.getContent();
+            MimeMultipart relatedMultiPart;
+            if (content instanceof MimeMultipart) {
+                MimeMultipart multiPart = (MimeMultipart) content;
+                String rootContentType = multiPart.getContentType().toLowerCase();
+                if (rootContentType.contains("mixed")) {
+                    MimeBodyPart relatedBodyPart = (MimeBodyPart) multiPart.getBodyPart(0);
+                    Object relatedContent = relatedBodyPart.getContent();
+                    if (relatedContent instanceof MimeMultipart) {
+                        relatedMultiPart = (MimeMultipart) relatedContent;
+                    } else {
+                        // In case there are no inline images, it's just the alternative body part
+                        MimeMultipart alternativeMultiPart = (MimeMultipart) relatedContent;
+                        try (InputStream stream = alternativeMultiPart.getBodyPart(0).getInputStream()) {
+                            String bodyContent = IOUtils.toString(stream, StandardCharsets.US_ASCII.name());
+                            assertEquals("Teste 23:34", bodyContent);
+                        }
+                        return;
+                    }
+                } else if (rootContentType.contains("related")) {
+                    relatedMultiPart = multiPart;
+                } else if (rootContentType.contains("alternative")) {
+                    try (InputStream stream = multiPart.getBodyPart(0).getInputStream()) {
+                        String bodyContent = IOUtils.toString(stream, StandardCharsets.US_ASCII.name());
+                        assertEquals("Teste 23:34", bodyContent);
+                    }
+                    return;
+                } else {
+                    fail("Unexpected multipart type: " + multiPart.getContentType());
+                    return;
+                }
+            } else if (content instanceof String) {
                 assertEquals("Teste 23:34", content);
+                return;
+            } else {
+                fail("Unexpected content type: " + content.getClass().getName());
+                return;
+            }
+            MimeBodyPart alternativeBodyPart = (MimeBodyPart) relatedMultiPart.getBodyPart(0);
+            MimeMultipart alternativeMultiPart = (MimeMultipart) alternativeBodyPart.getContent();
+            try (InputStream stream = alternativeMultiPart.getBodyPart(0).getInputStream()) {
+                String bodyContent = IOUtils.toString(stream, StandardCharsets.US_ASCII.name());
+                assertEquals("Teste 23:34", bodyContent);
             }
         } catch (Exception ex) {
             fail(ex);

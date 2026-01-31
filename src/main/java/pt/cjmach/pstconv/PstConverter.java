@@ -466,10 +466,33 @@ public class PstConverter {
             mimeMessage.setFlag(javax.mail.Flags.Flag.FLAGGED, true);
         }
 
-        MimeMultipart rootMultipart = new MimeMultipart();
-        convertMessageBody(message, rootMultipart);
-        convertAttachments(message, rootMultipart);
-        mimeMessage.setContent(rootMultipart);
+        MimeMultipart relatedMultipart = new MimeMultipart("related"); // NOI18N
+        
+        convertMessageBody(message, relatedMultipart);
+        MimeMultipart rootMultipart = new MimeMultipart("mixed"); // NOI18N
+        convertAttachments(message, rootMultipart, relatedMultipart);
+        
+        if (relatedMultipart.getCount() > 1) {
+            MimeBodyPart relatedBodyPart = new MimeBodyPart();
+            relatedBodyPart.setContent(relatedMultipart);
+            
+            if (rootMultipart.getCount() > 0) {
+                rootMultipart.addBodyPart(relatedBodyPart, 0);
+                mimeMessage.setContent(rootMultipart);
+            } else {
+                mimeMessage.setContent(relatedMultipart);
+            }
+        } else if (relatedMultipart.getCount() == 1) {
+            BodyPart bodyPart = relatedMultipart.getBodyPart(0);
+            if (rootMultipart.getCount() > 0) {
+                rootMultipart.addBodyPart(bodyPart, 0);
+                mimeMessage.setContent(rootMultipart);
+            } else {
+                mimeMessage.setContent(bodyPart.getContent(), bodyPart.getContentType());
+            }
+        } else {
+            mimeMessage.setContent(rootMultipart);
+        }
         return mimeMessage;
     }
 
@@ -533,32 +556,40 @@ public class PstConverter {
         }
     }
 
-    void convertMessageBody(PSTMessage message, MimeMultipart rootMultipart) throws IOException, MessagingException {
-        MimeMultipart contentMultipart = new MimeMultipart();
+    void convertMessageBody(PSTMessage message, MimeMultipart relatedMultipart) throws IOException, MessagingException {
         String messageBody = message.getBody();
         String messageBodyHTML = message.getBodyHTML();
 
         if (messageBodyHTML != null && !messageBodyHTML.isEmpty()) {
+            MimeMultipart alternativeMultipart = new MimeMultipart("alternative"); // NOI18N
+            // Add plain text version if available
+            if (messageBody != null && !messageBody.isEmpty()) {
+                MimeBodyPart textBodyPart = new MimeBodyPart();
+                textBodyPart.setText(messageBody);
+                alternativeMultipart.addBodyPart(textBodyPart);
+            }
+            
             MimeBodyPart htmlBodyPart = new MimeBodyPart();
             htmlBodyPart.setDataHandler(new DataHandler(new ByteArrayDataSource(messageBodyHTML, "text/html"))); // NOI18N
-            contentMultipart.addBodyPart(htmlBodyPart);
+            alternativeMultipart.addBodyPart(htmlBodyPart);
+            
+            MimeBodyPart alternativeBodyPart = new MimeBodyPart();
+            alternativeBodyPart.setContent(alternativeMultipart);
+            relatedMultipart.addBodyPart(alternativeBodyPart);
         } else if (messageBody != null && !messageBody.isEmpty()) {
             MimeBodyPart textBodyPart = new MimeBodyPart();
             textBodyPart.setText(messageBody);
-            contentMultipart.addBodyPart(textBodyPart);
+            relatedMultipart.addBodyPart(textBodyPart);
         } else {
             MimeBodyPart textBodyPart = new MimeBodyPart();
             textBodyPart.setText("");
             textBodyPart.addHeaderLine("Content-Type: text/plain; charset=\"utf-8\""); // NOI18N
             textBodyPart.addHeaderLine("Content-Transfer-Encoding: quoted-printable"); // NOI18N
-            contentMultipart.addBodyPart(textBodyPart);
+            relatedMultipart.addBodyPart(textBodyPart);
         }
-        MimeBodyPart contentBodyPart = new MimeBodyPart();
-        contentBodyPart.setContent(contentMultipart);
-        rootMultipart.addBodyPart(contentBodyPart);
     }
 
-    void convertAttachments(PSTMessage message, MimeMultipart rootMultipart) throws MessagingException, PSTException, IOException {
+    void convertAttachments(PSTMessage message, MimeMultipart rootMultipart, MimeMultipart relatedMultipart) throws MessagingException, PSTException, IOException {
         for (int i = 0; i < message.getNumberOfAttachments(); i++) {
             PSTAttachment attachment = message.getAttachment(i);
 
@@ -577,13 +608,25 @@ public class PstConverter {
                     DataSource source = new ByteArrayDataSource(data, mimeTag);
                     attachmentBodyPart.setDataHandler(new DataHandler(source));
 
-                    attachmentBodyPart.setContentID(attachment.getContentId());
-
+                    String contentId = attachment.getContentId();
+                    
                     String fileName = coalesce("attachment-" + attachment.getDescriptorNodeId(), // NOI18N
                             attachment.getLongFilename(), attachment.getDisplayName(), attachment.getFilename());
                     attachmentBodyPart.setFileName(fileName);
 
-                    rootMultipart.addBodyPart(attachmentBodyPart);
+                    // Inline attachments should have a Content-ID and be part of the related multipart
+                    if (contentId != null && !contentId.isEmpty()) {
+                        // Ensure Content-ID is enclosed in angle brackets
+                        if (!contentId.startsWith("<")) {
+                            contentId = "<" + contentId + ">";
+                        }
+                        attachmentBodyPart.setContentID(contentId);
+                        attachmentBodyPart.setDisposition(Part.INLINE);
+                        relatedMultipart.addBodyPart(attachmentBodyPart);
+                    } else {
+                        attachmentBodyPart.setDisposition(Part.ATTACHMENT);
+                        rootMultipart.addBodyPart(attachmentBodyPart);
+                    }
                 } catch (NullPointerException ex) {
                     logger.warn("Failed to convert attachment {} from message {}.", 
                             attachment.getDescriptorNodeId(), message.getDescriptorNodeId());
