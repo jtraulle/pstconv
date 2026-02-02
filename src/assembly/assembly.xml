@@ -6,12 +6,28 @@
         <format>jar</format>
     </formats>
     <includeBaseDirectory>false</includeBaseDirectory>
+    <fileSets>
+        <fileSet>
+            <directory>${project.build.outputDirectory}</directory>
+            <outputDirectory>/</outputDirectory>
+            <includes>
+                <include>**/*</include>
+            </includes>
+        </fileSet>
+    </fileSets>
     <dependencySets>
         <dependencySet>
             <outputDirectory>/</outputDirectory>
-            <useProjectArtifact>true</useProjectArtifact>
+            <useProjectArtifact>false</useProjectArtifact>
             <unpack>true</unpack>
             <scope>runtime</scope>
+            <unpackOptions>
+                <excludes>
+                    <!-- Exclure la classe PSTDistList originale et ses inner classes -->
+                    <exclude>com/pff/PSTDistList.class</exclude>
+                    <exclude>com/pff/PSTDistList$*.class</exclude>
+                </excludes>
+            </unpackOptions>
         </dependencySet>
     </dependencySets>
     <containerDescriptorHandlers>
