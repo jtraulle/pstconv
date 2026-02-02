@@ -16,8 +16,13 @@
 package pt.cjmach.pstconv;
 
 import pt.cjmach.pstconv.mail.EmlStore;
+import pt.cjmach.pstconv.mail.MaildirFolder;
 import pt.cjmach.pstconv.mail.MaildirStore;
+import com.pff.PSTAppointment;
 import com.pff.PSTAttachment;
+import com.pff.PSTContact;
+import com.pff.PSTDistList;
+import com.pff.PSTTask;
 import com.pff.PSTException;
 import com.pff.PSTFile;
 import com.pff.PSTFolder;
@@ -326,9 +331,28 @@ public class PstConverter {
                 String errorMsg = "Failed to append message id {} to folder {}.";
                 PSTMessage pstMessage = (PSTMessage) child;
                 try {
-                    messages[0] = convertToMimeMessage(pstMessage, charset);
-                    mailFolder.appendMessages(messages);
-                    messageCount++;
+                    if (pstMessage instanceof PSTContact && mailFolder instanceof MaildirFolder) {
+                        exportContactToVCard((PSTContact) pstMessage, (MaildirFolder) mailFolder);
+                        messageCount++;
+                    } else if (pstMessage instanceof PSTDistList && mailFolder instanceof MaildirFolder) {
+                        exportDistListToVCard((PSTDistList) pstMessage, (MaildirFolder) mailFolder);
+                        messageCount++;
+                    } else if (pstMessage instanceof PSTAppointment && mailFolder instanceof MaildirFolder) {
+                        if (isMeetingInvitation(pstMessage)) {
+                            messages[0] = convertToMimeMessage(pstMessage, charset);
+                            mailFolder.appendMessages(messages);
+                        } else {
+                            exportAppointmentToICalendar((PSTAppointment) pstMessage, (MaildirFolder) mailFolder);
+                        }
+                        messageCount++;
+                    } else if (pstMessage instanceof PSTTask && mailFolder instanceof MaildirFolder) {
+                        exportTaskToICalendar((PSTTask) pstMessage, (MaildirFolder) mailFolder);
+                        messageCount++;
+                    } else {
+                        messages[0] = convertToMimeMessage(pstMessage, charset);
+                        mailFolder.appendMessages(messages);
+                        messageCount++;
+                    }
                 } catch (MessagingException ex) {
                     // if the cause of the MessagingException is a MalformedInputException,
                     // then it was probably thrown due to the encoding set by the user on 
@@ -592,6 +616,14 @@ public class PstConverter {
     }
 
     void convertAttachments(PSTMessage message, MimeMultipart rootMultipart, MimeMultipart relatedMultipart) throws MessagingException, PSTException, IOException {
+        if (message instanceof PSTAppointment && isMeetingInvitation(message)) {
+            String ical = getAppointmentICalendar((PSTAppointment) message);
+            MimeBodyPart calendarPart = new MimeBodyPart();
+            calendarPart.setDataHandler(new DataHandler(new ByteArrayDataSource(ical, "text/calendar; method=REQUEST; charset=\"utf-8\"")));
+            calendarPart.addHeader("Content-Transfer-Encoding", "7bit");
+            rootMultipart.addBodyPart(calendarPart);
+        }
+
         for (int i = 0; i < message.getNumberOfAttachments(); i++) {
             PSTAttachment attachment = message.getAttachment(i);
 
@@ -635,6 +667,15 @@ public class PstConverter {
                 }
             }
         }
+    }
+
+    private boolean isMeetingInvitation(PSTMessage message) {
+        String messageClass = message.getMessageClass();
+        return messageClass != null && (messageClass.equalsIgnoreCase("IPM.Schedule.Meeting.Request")
+                || messageClass.equalsIgnoreCase("IPM.Schedule.Meeting.Canceled")
+                || messageClass.equalsIgnoreCase("IPM.Schedule.Meeting.Resp.Pos")
+                || messageClass.equalsIgnoreCase("IPM.Schedule.Meeting.Resp.Neg")
+                || messageClass.equalsIgnoreCase("IPM.Schedule.Meeting.Resp.Tent"));
     }
 
     static boolean isMimeTypeKnown(String mime) {
@@ -751,5 +792,291 @@ public class PstConverter {
      */
     private static boolean isValidDate(Date date) {
         return date != null && date.getTime() != 0;
+    }
+
+    private void exportContactToVCard(PSTContact contact, MaildirFolder maildirFolder) throws MessagingException {
+        String descriptorIndex = Long.toString(contact.getDescriptorNodeId());
+        String uid = "PST-" + descriptorIndex;
+        String fileName = uid + ".vcf";
+        File vcfFile = new File(maildirFolder.getDirectory(), fileName);
+
+        StringBuilder vcard = new StringBuilder();
+        vcard.append("BEGIN:VCARD\r\n");
+        vcard.append("VERSION:3.0\r\n");
+        vcard.append("UID:").append(uid).append("\r\n");
+
+        // Basic fields
+        String fullName = contact.getDisplayName();
+        if (fullName != null && !fullName.isEmpty()) {
+            vcard.append("FN:").append(fullName).append("\r\n");
+        }
+        String firstName = contact.getGivenName();
+        String lastName = contact.getSurname();
+        if ((firstName != null && !firstName.isEmpty()) || (lastName != null && !lastName.isEmpty())) {
+            vcard.append("N:").append(coalesce("", lastName)).append(";").append(coalesce("", firstName)).append(";;;\r\n");
+        }
+        String email = contact.getEmail1EmailAddress();
+        if (email != null && !email.isEmpty()) {
+            vcard.append("EMAIL;TYPE=PREF,INTERNET:").append(email).append("\r\n");
+        }
+
+        vcard.append("END:VCARD\r\n");
+
+        try (java.io.FileOutputStream fos = new java.io.FileOutputStream(vcfFile)) {
+            fos.write(vcard.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (IOException ex) {
+            throw new MessagingException("Failed to write VCARD file: " + vcfFile.getAbsolutePath(), ex);
+        }
+    }
+
+    private void exportDistListToVCard(PSTDistList distList, MaildirFolder maildirFolder) throws MessagingException {
+        String descriptorIndex = Long.toString(distList.getDescriptorNodeId());
+        String uid = "PST-VL-" + descriptorIndex;
+        String fileName = uid + ".vcf";
+        File vcfFile = new File(maildirFolder.getDirectory(), fileName);
+
+        StringBuilder vlist = new StringBuilder();
+        vlist.append("BEGIN:VLIST\r\n");
+        vlist.append("UID:").append(uid).append("\r\n");
+        vlist.append("VERSION:1.0\r\n");
+
+        try {
+            // In java-libpst 0.9.3, getDistributionListMembers returns Object[] 
+            // which usually contains String or other objects representing members.
+            // Since we don't have direct access to linked contact UIDs easily,
+            // we'll try to extract what we can.
+            System.out.println("=====>" + distList.getDisplayName());
+            Object[] members = distList.getDistributionListMembersSafe();
+
+            if (members == null || members.length == 0) {
+                System.out.println("  Aucun membre dans cette liste");
+            } else {
+                System.out.println("  Nombre de membres: " + members.length);
+
+                for (int i = 0; i < members.length; i++) {
+                    try {
+                        Object member = members[i];
+                        System.out.println("  Membre " + i + ": " + member.getClass().getSimpleName());
+
+                        if (member instanceof PSTContact contact) {
+                            System.out.println("    Email: " + contact.getEmail1EmailAddress());
+                        }
+                    } catch (Exception e) {
+                        System.err.println("  Erreur sur le membre " + i + ": " + e.getMessage());
+                    }
+                }
+            }
+
+            /*
+            if (members != null) {
+                for (Object member : members) {
+                    System.out.println(member.getClass().getSimpleName());
+                    if (member instanceof PSTContact contact) {
+                        vlist.append("CARD;")
+                                .append(escapeICalendar(contact.getEmailAddress()))
+                                .append(";FN=")
+                                .append(escapeICalendar(contact.getDisplayName()))
+                                .append(":")
+                                .append("PST-VC-")
+                                .append(contact.getDescriptorNodeId())
+                                .append("\r\n");
+                    }
+                }
+            }
+            */
+        } catch (Exception ex) {
+            logger.warn("Failed to get entries for distribution list {}", uid, ex);
+        }
+
+        String groupName = distList.getDisplayName();
+        if (groupName == null || groupName.isEmpty()) {
+            groupName = distList.getSubject();
+        }
+        if (groupName != null && !groupName.isEmpty()) {
+            vlist.append("FN:").append(groupName).append("\r\n");
+        }
+        vlist.append("END:VLIST\r\n");
+
+        try (java.io.FileOutputStream fos = new java.io.FileOutputStream(vcfFile)) {
+            fos.write(vlist.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (IOException ex) {
+            throw new MessagingException("Failed to write VCARD (VLIST) file: " + vcfFile.getAbsolutePath(), ex);
+        }
+    }
+
+    private String getAppointmentICalendar(PSTAppointment appointment) {
+        String descriptorIndex = Long.toString(appointment.getDescriptorNodeId());
+        String uid = "PST-VE-" + descriptorIndex;
+
+        StringBuilder ical = new StringBuilder();
+        ical.append("BEGIN:VCALENDAR\r\n");
+        ical.append("VERSION:2.0\r\n");
+        ical.append("PRODID:-//pstconv//NONSGML v1.0//EN\r\n");
+        ical.append("BEGIN:VEVENT\r\n");
+        ical.append("UID:").append(uid).append("\r\n");
+
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyyMMdd'T'HHmmss'Z'");
+        sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+        String now = sdf.format(new Date());
+        ical.append("DTSTAMP:").append(now).append("\r\n");
+
+        Date start = appointment.getStartTime();
+        if (start != null) {
+            ical.append("DTSTART:").append(sdf.format(start)).append("\r\n");
+        }
+        Date end = appointment.getEndTime();
+        if (end != null) {
+            ical.append("DTEND:").append(sdf.format(end)).append("\r\n");
+        }
+
+        String summary = appointment.getSubject();
+        if (summary != null && !summary.isEmpty()) {
+            ical.append("SUMMARY:").append(escapeICalendar(summary)).append("\r\n");
+        }
+
+        String location = appointment.getLocation();
+        if (location != null && !location.isEmpty()) {
+            ical.append("LOCATION:").append(escapeICalendar(location)).append("\r\n");
+        }
+
+        String description = appointment.getBody();
+        if (description != null && !description.isEmpty()) {
+            ical.append("DESCRIPTION:").append(escapeICalendar(description)).append("\r\n");
+        }
+
+        try {
+            String recurrence = appointment.getRecurrencePattern();
+            if (recurrence != null && !recurrence.isEmpty()) {
+                // Since java-libpst returns a string for recurrence pattern in this version,
+                // we'll try to include it. Note: it might not be a valid RRULE directly.
+                ical.append("RRULE:").append(recurrence).append("\r\n");
+            }
+        } catch (Exception ex) {
+            logger.warn("Failed to get recurrence pattern for appointment {}", uid, ex);
+        }
+
+        ical.append("END:VEVENT\r\n");
+        ical.append("END:VCALENDAR\r\n");
+        return ical.toString();
+    }
+
+    private void exportAppointmentToICalendar(PSTAppointment appointment, MaildirFolder maildirFolder) throws MessagingException {
+        String descriptorIndex = Long.toString(appointment.getDescriptorNodeId());
+        String uid = "PST-VE-" + descriptorIndex;
+        String fileName = uid + ".ics";
+        File icsFile = new File(maildirFolder.getDirectory(), fileName);
+
+        String ical = getAppointmentICalendar(appointment);
+
+        try (java.io.FileOutputStream fos = new java.io.FileOutputStream(icsFile)) {
+            fos.write(ical.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (IOException ex) {
+            throw new MessagingException("Failed to write iCalendar file: " + icsFile.getAbsolutePath(), ex);
+        }
+    }
+
+    private void exportTaskToICalendar(PSTTask task, MaildirFolder maildirFolder) throws MessagingException {
+        String descriptorIndex = Long.toString(task.getDescriptorNodeId());
+        String uid = "PST-VT-" + descriptorIndex;
+        String fileName = uid + ".ics";
+        File icsFile = new File(maildirFolder.getDirectory(), fileName);
+
+        StringBuilder ical = new StringBuilder();
+        ical.append("BEGIN:VCALENDAR\r\n");
+        ical.append("VERSION:2.0\r\n");
+        ical.append("PRODID:-//pstconv//NONSGML v1.0//EN\r\n");
+        ical.append("BEGIN:VTODO\r\n");
+        ical.append("UID:").append(uid).append("\r\n");
+
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyyMMdd'T'HHmmss'Z'");
+        sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+        String now = sdf.format(new Date());
+        ical.append("DTSTAMP:").append(now).append("\r\n");
+
+        String summary = task.getSubject();
+        if (summary != null && !summary.isEmpty()) {
+            ical.append("SUMMARY:").append(escapeICalendar(summary)).append("\r\n");
+        }
+
+        String description = task.getBody();
+        if (description != null && !description.isEmpty()) {
+            ical.append("DESCRIPTION:").append(escapeICalendar(description)).append("\r\n");
+        }
+
+        Date start = task.getTaskStartDate();
+        if (start != null) {
+            ical.append("DTSTART:").append(sdf.format(start)).append("\r\n");
+        }
+
+        Date due = task.getTaskDueDate();
+        if (due != null) {
+            ical.append("DUE:").append(sdf.format(due)).append("\r\n");
+        }
+
+        Date completedDate = task.getTaskDateCompleted();
+        if (completedDate != null) {
+            ical.append("COMPLETED:").append(sdf.format(completedDate)).append("\r\n");
+        }
+
+        int priority = task.getImportance();
+        // Outlook importance: 0=Low, 1=Normal, 2=High
+        // RFC 5545 PRIORITY: 1-5 (High), 5 (Normal), 6-9 (Low), 0 (Undefined)
+        if (priority == 2) {
+            ical.append("PRIORITY:1\r\n");
+        } else if (priority == 0) {
+            ical.append("PRIORITY:9\r\n");
+        } else {
+            ical.append("PRIORITY:5\r\n");
+        }
+
+        int status = task.getTaskStatus();
+        // Outlook task status: 0=Not Started, 1=In Progress, 2=Complete, 3=Waiting, 4=Deferred
+        // RFC 5545 STATUS: NEEDS-ACTION, IN-PROCESS, COMPLETED, CANCELLED
+        switch (status) {
+            case 0:
+                ical.append("STATUS:NEEDS-ACTION\r\n");
+                break;
+            case 1:
+            case 3:
+            case 4:
+                ical.append("STATUS:IN-PROCESS\r\n");
+                break;
+            case 2:
+                ical.append("STATUS:COMPLETED\r\n");
+                break;
+        }
+
+        double percentComplete = task.getPercentComplete();
+        ical.append("PERCENT-COMPLETE:").append((int) (percentComplete * 100)).append("\r\n");
+
+        try {
+            // Check if recurrence pattern can be accessed.
+            // Some versions of java-libpst use getRecurrencePattern() for tasks as well.
+            // If it's missing or named differently, we'll catch the error.
+            java.lang.reflect.Method method = task.getClass().getMethod("getRecurrencePattern");
+            String recurrence = (String) method.invoke(task);
+            if (recurrence != null && !recurrence.isEmpty()) {
+                ical.append("RRULE:").append(recurrence).append("\r\n");
+            }
+        } catch (Exception ex) {
+            // Not available or failed, skip recurrence for task
+        }
+
+        ical.append("END:VTODO\r\n");
+        ical.append("END:VCALENDAR\r\n");
+
+        try (java.io.FileOutputStream fos = new java.io.FileOutputStream(icsFile)) {
+            fos.write(ical.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (IOException ex) {
+            throw new MessagingException("Failed to write iCalendar file: " + icsFile.getAbsolutePath(), ex);
+        }
+    }
+
+    private String escapeICalendar(String text) {
+        return text.replace("\\", "\\\\")
+                .replace(";", "\\;")
+                .replace(",", "\\,")
+                .replace("\n", "\\n")
+                .replace("\r", "");
     }
 }

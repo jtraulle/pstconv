@@ -106,6 +106,10 @@ public class MaildirFolder extends LocalFolder {
         return getFileEntries().length;
     }
 
+    public File getDirectory() {
+        return directory;
+    }
+
     static String getMaildirFileName(Message msg, String descriptorIndex) throws MessagingException {
         String[] deliveryTimeHeader = msg.getHeader("X-PST-Delivery-Time");
         long timestamp = Long.parseLong(deliveryTimeHeader[0]);
