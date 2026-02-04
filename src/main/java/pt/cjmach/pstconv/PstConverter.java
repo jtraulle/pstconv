@@ -252,7 +252,7 @@ public class PstConverter {
      * @throws IOException
      */
     public PstConvertResult convert(PSTFile pstFile, File outputDirectory, MailMessageFormat format, String encoding, boolean skipEmptyFolders) throws PSTException, MessagingException, IOException {
-        if (outputDirectory.exists() && !outputDirectory.isDirectory()) {
+        if (format != MailMessageFormat.TH_TXT && outputDirectory.exists() && !outputDirectory.isDirectory()) {
             throw new IllegalArgumentException(String.format("Not a directory: %s.", outputDirectory.getAbsolutePath()));
         }
         if (format == null) {
@@ -264,6 +264,14 @@ public class PstConverter {
         // see: https://docs.oracle.com/javaee/6/api/javax/mail/internet/package-summary.html#package_description
         System.setProperty("mail.mime.address.strict", "false"); // NOI18N
         long messageCount = 0;
+
+        if (format == MailMessageFormat.TH_TXT) {
+            StopWatch watch = StopWatch.createStarted();
+            System.out.println(".");
+            listFolders(pstFile.getRootFolder(), "", skipEmptyFolders);
+            watch.stop();
+            return new PstConvertResult(0, watch.getTime());
+        }
 
         if (!outputDirectory.exists() && !outputDirectory.mkdirs()) {
             throw new IOException("Failed to create output directory " + outputDirectory.getAbsolutePath());
@@ -390,7 +398,13 @@ public class PstConverter {
             }
         }
         if (pstFolder.hasSubfolders()) {
-            for (PSTFolder pstSubFolder : pstFolder.getSubFolders()) {
+            java.util.Vector<PSTFolder> subFolders;
+            try {
+                subFolders = pstFolder.getSubFolders();
+            } catch (PSTException ex) {
+                subFolders = new java.util.Vector<>();
+            }
+            for (PSTFolder pstSubFolder : subFolders) {
                 if (skipEmptyFolders && !hasMessages(pstSubFolder)) {
                     continue;
                 }
@@ -428,7 +442,13 @@ public class PstConverter {
             return true;
         }
         if (pstFolder.hasSubfolders()) {
-            for (PSTFolder subFolder : pstFolder.getSubFolders()) {
+            java.util.Vector<PSTFolder> subFolders;
+            try {
+                subFolders = pstFolder.getSubFolders();
+            } catch (PSTException ex) {
+                subFolders = new java.util.Vector<>();
+            }
+            for (PSTFolder subFolder : subFolders) {
                 if (hasMessages(subFolder)) {
                     return true;
                 }
@@ -1069,6 +1089,42 @@ public class PstConverter {
             fos.write(ical.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
         } catch (IOException ex) {
             throw new MessagingException("Failed to write iCalendar file: " + icsFile.getAbsolutePath(), ex);
+        }
+    }
+
+    private void listFolders(PSTFolder pstFolder, String prefix, boolean skipEmptyFolders) throws PSTException, IOException {
+        java.util.Vector<PSTFolder> subFolders;
+        try {
+            subFolders = pstFolder.getSubFolders();
+        } catch (PSTException ex) {
+            // Some special folders like Search Folders might fail to list children.
+            return;
+        }
+
+        if (skipEmptyFolders) {
+            java.util.Vector<PSTFolder> filtered = new java.util.Vector<>();
+            for (PSTFolder subFolder : subFolders) {
+                if (hasMessages(subFolder)) {
+                    filtered.add(subFolder);
+                }
+            }
+            subFolders = filtered;
+        }
+
+        int count = subFolders.size();
+        for (int i = 0; i < count; i++) {
+            PSTFolder subFolder = subFolders.get(i);
+            boolean isLast = (i == count - 1);
+            String folderName = subFolder.getDisplayName();
+            int itemCount = subFolder.getContentCount();
+            System.out.print(prefix);
+            if (isLast) {
+                System.out.println("└── [" + itemCount + "] " + folderName);
+                listFolders(subFolder, prefix + "    ", skipEmptyFolders);
+            } else {
+                System.out.println("├── [" + itemCount + "] " + folderName);
+                listFolders(subFolder, prefix + "│   ", skipEmptyFolders);
+            }
         }
     }
 

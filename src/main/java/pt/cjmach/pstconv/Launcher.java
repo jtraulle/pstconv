@@ -50,7 +50,7 @@ public class Launcher implements Callable<Integer> {
     /**
      * 
      */
-    @Option(names = {"-o", "--output"}, paramLabel = "DIRECTORY", required = true, // NOI18N
+    @Option(names = {"-o", "--output"}, paramLabel = "DIRECTORY", 
             description = "Path to Mbox/EML output directory. If it doesn't exist, the application will attempt to create it. Required option.")
     private File outputDirectory;
     /**
@@ -96,13 +96,20 @@ public class Launcher implements Callable<Integer> {
      */
     @Override
     public Integer call() throws Exception {
+        if (outputFormat != MailMessageFormat.TH_TXT && outputDirectory == null) {
+            System.err.println("Error: Missing required option: '--output=<DIRECTORY>'");
+            CommandLine.usage(this, System.err);
+            return 1;
+        }
         PstConverter converter = new PstConverter();
         if (folderNamesMap != null) {
             converter.setFolderNamesMap(folderNamesMap);
         }
         try {
             PstConvertResult result = converter.convert(inputFile, outputDirectory, outputFormat, encoding, skipEmptyFolders);
-            logger.info("Finished! Converted {} messages in {} seconds.", result.getMessageCount(), result.getDurationInMillis() / 1000.0);
+            if (outputFormat != MailMessageFormat.TH_TXT) {
+                logger.info("Finished! Converted {} messages in {} seconds.", result.getMessageCount(), result.getDurationInMillis() / 1000.0);
+            }
         } catch (PSTException | MessagingException | IOException ex) {
             return 1;
         }

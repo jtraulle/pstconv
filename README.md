@@ -16,12 +16,14 @@ usage: java -jar pstconv.jar [OPTIONS]
  -e,--encoding <ENCODING>   Encoding to use for reading character data.
                             Default is ISO-8859-1.
  -f,--format <FORMAT>       Convert input file to one of the following
-                            formats: mbox, eml, maildir. Default is mbox.
+                            formats: mbox, eml, maildir, th_txt. Default is
+                            mbox.
  -h,--help                  Print help and exit.
  -i,--input <FILE>          Path to OST/PST input file. Required option.
  -o,--output <DIRECTORY>    Path to MBOX/EML/MAILDIR output directory. If it
                             doesn't exist, the application will attempt to
-                            create it. Required option.
+                            create it. Required option, except for th_txt
+                            format.
  -r,--rename-folder <OLD=NEW> Rename folder OLD to NEW in output. Can be
                             used multiple times.
  -s,--skip-empty            Do not create empty folders.

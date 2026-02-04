@@ -16,10 +16,12 @@
 package pt.cjmach.pstconv;
 
 import com.pff.PSTException;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import javax.mail.Address;
@@ -348,6 +350,61 @@ public class PstConverterTest {
             try {
                 FileUtils.deleteDirectory(outputDirectory);
             } catch (IOException ignore) { }
+        }
+    }
+
+    @Test
+    public void testConvertFormatTHTXT() {
+        File inputFile = new File("src/test/resources/pt/cjmach/pstconv/outlook.pst");
+        File outputDirectory = null;
+        MailMessageFormat format = MailMessageFormat.TH_TXT;
+        String encoding = "UTF-8";
+        
+        PrintStream oldOut = System.out;
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (PrintStream newOut = new PrintStream(baos)) {
+            System.setOut(newOut);
+            PstConvertResult result = instance.convert(inputFile, outputDirectory, format, encoding, false);
+            assertNotNull(result);
+            assertEquals(0, result.getMessageCount());
+            
+            String output = baos.toString();
+            // Verify that the output contains the bracketed item count.
+            // In the test PST, "Caixa de Entrada" should have 2 messages.
+            assertTrue(output.contains("[2] Caixa de Entrada") || output.contains("[2] Inbox"), "Output should contain item count in brackets. Output: " + output);
+            // And it should contain some empty folders
+            assertTrue(output.contains("[0] Contactos") || output.contains("[0] Contacts"), "Output should contain empty folders when skipEmptyFolders is false. Output: " + output);
+        } catch (Exception ex) {
+            fail(ex);
+        } finally {
+            System.setOut(oldOut);
+        }
+    }
+
+    @Test
+    public void testConvertFormatTHTXTSkipEmpty() {
+        File inputFile = new File("src/test/resources/pt/cjmach/pstconv/outlook.pst");
+        File outputDirectory = null;
+        MailMessageFormat format = MailMessageFormat.TH_TXT;
+        String encoding = "UTF-8";
+        
+        PrintStream oldOut = System.out;
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (PrintStream newOut = new PrintStream(baos)) {
+            System.setOut(newOut);
+            PstConvertResult result = instance.convert(inputFile, outputDirectory, format, encoding, true);
+            assertNotNull(result);
+            
+            String output = baos.toString();
+            // Should still contain non-empty folders
+            assertTrue(output.contains("[2] Caixa de Entrada") || output.contains("[2] Inbox"), "Output should contain non-empty folders. Output: " + output);
+            // Should NOT contain empty folders
+            assertFalse(output.contains("[0] Contactos") || output.contains("[0] Contacts"), "Output should NOT contain empty folders when skipEmptyFolders is true. Output: " + output);
+            assertFalse(output.contains("[0] Calendário") || output.contains("[0] Calendar"), "Output should NOT contain empty folders when skipEmptyFolders is true. Output: " + output);
+        } catch (Exception ex) {
+            fail(ex);
+        } finally {
+            System.setOut(oldOut);
         }
     }
 }
