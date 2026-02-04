@@ -335,8 +335,9 @@ public class PstConverter {
                         exportContactToVCard((PSTContact) pstMessage, (MaildirFolder) mailFolder);
                         messageCount++;
                     } else if (pstMessage instanceof PSTDistList && mailFolder instanceof MaildirFolder) {
-                        exportDistListToVCard((PSTDistList) pstMessage, (MaildirFolder) mailFolder);
-                        messageCount++;
+                        if (exportDistListToVCard((PSTDistList) pstMessage, (MaildirFolder) mailFolder)) {
+                            messageCount++;
+                        }
                     } else if (pstMessage instanceof PSTAppointment && mailFolder instanceof MaildirFolder) {
                         if (isMeetingInvitation(pstMessage)) {
                             messages[0] = convertToMimeMessage(pstMessage, charset);
@@ -829,7 +830,12 @@ public class PstConverter {
         }
     }
 
-    private void exportDistListToVCard(PSTDistList distList, MaildirFolder maildirFolder) throws MessagingException {
+    private boolean exportDistListToVCard(PSTDistList distList, MaildirFolder maildirFolder) throws MessagingException {
+        Object[] members = distList.getDistributionListMembersSafe();
+        if (members == null || members.length == 0) {
+            return false;
+        }
+
         String descriptorIndex = Long.toString(distList.getDescriptorNodeId());
         String uid = "PST-VL-" + descriptorIndex;
         String fileName = uid + ".vcf";
@@ -837,55 +843,32 @@ public class PstConverter {
 
         StringBuilder vlist = new StringBuilder();
         vlist.append("BEGIN:VLIST\r\n");
-        vlist.append("UID:").append(uid).append("\r\n");
+        vlist.append("UID:").append(uid).append(".vcf").append("\r\n");
         vlist.append("VERSION:1.0\r\n");
 
-        try {
-            // In java-libpst 0.9.3, getDistributionListMembers returns Object[] 
-            // which usually contains String or other objects representing members.
-            // Since we don't have direct access to linked contact UIDs easily,
-            // we'll try to extract what we can.
-            System.out.println("=====>" + distList.getDisplayName());
-            Object[] members = distList.getDistributionListMembersSafe();
-
-            if (members == null || members.length == 0) {
-                System.out.println("  Aucun membre dans cette liste");
-            } else {
-                System.out.println("  Nombre de membres: " + members.length);
-
-                for (int i = 0; i < members.length; i++) {
-                    try {
-                        Object member = members[i];
-                        System.out.println("  Membre " + i + ": " + member.getClass().getSimpleName());
-
-                        if (member instanceof PSTContact contact) {
-                            System.out.println("    Email: " + contact.getEmail1EmailAddress());
-                        }
-                    } catch (Exception e) {
-                        System.err.println("  Erreur sur le membre " + i + ": " + e.getMessage());
-                    }
+        for (int i = 0; i < members.length; i++) {
+            try {
+                Object member = members[i];
+                if (member instanceof PSTContact contact) {
+                    vlist.append("CARD;")
+                            .append(escapeICalendar(contact.getEmail1EmailAddress()))
+                            .append(";FN=")
+                            .append(escapeICalendar(contact.getDisplayName()))
+                            .append(":")
+                            .append("PST-VC-")
+                            .append(contact.getDescriptorNodeId())
+                            .append(".vcf")
+                            .append("\r\n");
+                } else if (member instanceof PSTDistList.OneOffEntry entry) {
+                    vlist.append("MEMBER;FN=")
+                            .append(escapeICalendar(entry.getDisplayName()))
+                            .append(":")
+                            .append(escapeICalendar(entry.getEmailAddress()))
+                            .append("\r\n");
                 }
+            } catch (Exception e) {
+                logger.warn("Error processing member {} of distribution list {}", i, uid, e);
             }
-
-            /*
-            if (members != null) {
-                for (Object member : members) {
-                    System.out.println(member.getClass().getSimpleName());
-                    if (member instanceof PSTContact contact) {
-                        vlist.append("CARD;")
-                                .append(escapeICalendar(contact.getEmailAddress()))
-                                .append(";FN=")
-                                .append(escapeICalendar(contact.getDisplayName()))
-                                .append(":")
-                                .append("PST-VC-")
-                                .append(contact.getDescriptorNodeId())
-                                .append("\r\n");
-                    }
-                }
-            }
-            */
-        } catch (Exception ex) {
-            logger.warn("Failed to get entries for distribution list {}", uid, ex);
         }
 
         String groupName = distList.getDisplayName();
@@ -902,6 +885,7 @@ public class PstConverter {
         } catch (IOException ex) {
             throw new MessagingException("Failed to write VCARD (VLIST) file: " + vcfFile.getAbsolutePath(), ex);
         }
+        return true;
     }
 
     private String getAppointmentICalendar(PSTAppointment appointment) {

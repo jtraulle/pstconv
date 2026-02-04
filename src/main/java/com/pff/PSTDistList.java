@@ -234,9 +234,7 @@ public class PSTDistList extends PSTMessage {
         }
 
         // Validation: vérifier qu'il y a assez de données pour lire le count
-        if (item.data.length < 8) {
-            System.err.println("Warning: Distribution list data too short, expected at least 8 bytes, got "
-                    + item.data.length);
+        if (item.data.length < 4) {
             return new Object[0];
         }
 
@@ -245,10 +243,14 @@ public class PSTDistList extends PSTMessage {
 
         // Validation: vérifier que le count est raisonnable
         if (count < 0 || count > 10000) {
-            throw new PSTException("Invalid member count: " + count);
+            return new Object[0];
         }
 
         if (count == 0) {
+            return new Object[0];
+        }
+
+        if (item.data.length < 8) {
             return new Object[0];
         }
 
@@ -309,8 +311,8 @@ public class PSTDistList extends PSTMessage {
                         final PSTObject member = PSTObject.detectAndLoadPSTObject(this.pstFile, descriptorIndex);
                         validMembers.add(member);
                     } catch (PSTException e) {
-                        System.err.println("Warning: Unable to load member " + x + " with descriptor index "
-                                + descriptorIndex + ": " + e.getMessage());
+                        //System.err.println("Warning: Unable to load member " + x + " with descriptor index "
+                        //        + descriptorIndex + ": " + e.getMessage());
                         // Continue avec les autres membres au lieu de tout arrêter
                     }
 
