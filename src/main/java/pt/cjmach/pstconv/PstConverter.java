@@ -205,6 +205,50 @@ public class PstConverter {
      * @param format The output format (MBOX or EML).
      * @param encoding The charset encoding to use for character data.
      * @param skipEmptyFolders Do not create empty folders.
+     * @param includeFolder Limit processing to a specific subfolder path.
+     * @param skipRootFolder Automatically skip the root folder of the PST hierarchy.
+     * @return number of successfully converted messages and the duration of the
+     * operation in milliseconds.
+     *
+     * @throws PSTException
+     * @throws MessagingException
+     * @throws IOException
+     */
+    public PstConvertResult convert(File inputFile, File outputDirectory, MailMessageFormat format, String encoding, boolean skipEmptyFolders, String includeFolder, boolean skipRootFolder) throws PSTException, MessagingException, IOException {
+        PSTFile pstFile = new PSTFile(inputFile); // throws FileNotFoundException is file doesn't exist.
+        return convert(pstFile, outputDirectory, format, encoding, skipEmptyFolders, includeFolder, skipRootFolder);
+    }
+
+    /**
+     * Converts an Outlook OST/PST file to MBox or EML format.
+     *
+     * @param inputFile The input PST file.
+     * @param outputDirectory The directory where the email messages are
+     * extracted to and saved.
+     * @param format The output format (MBOX or EML).
+     * @param encoding The charset encoding to use for character data.
+     * @param skipEmptyFolders Do not create empty folders.
+     * @param includeFolder Limit processing to a specific subfolder path.
+     * @return number of successfully converted messages and the duration of the
+     * operation in milliseconds.
+     *
+     * @throws PSTException
+     * @throws MessagingException
+     * @throws IOException
+     */
+    public PstConvertResult convert(File inputFile, File outputDirectory, MailMessageFormat format, String encoding, boolean skipEmptyFolders, String includeFolder) throws PSTException, MessagingException, IOException {
+        return convert(inputFile, outputDirectory, format, encoding, skipEmptyFolders, includeFolder, false);
+    }
+
+    /**
+     * Converts an Outlook OST/PST file to MBox or EML format.
+     *
+     * @param inputFile The input PST file.
+     * @param outputDirectory The directory where the email messages are
+     * extracted to and saved.
+     * @param format The output format (MBOX or EML).
+     * @param encoding The charset encoding to use for character data.
+     * @param skipEmptyFolders Do not create empty folders.
      * @return number of successfully converted messages and the duration of the
      * operation in milliseconds.
      *
@@ -213,8 +257,7 @@ public class PstConverter {
      * @throws IOException
      */
     public PstConvertResult convert(File inputFile, File outputDirectory, MailMessageFormat format, String encoding, boolean skipEmptyFolders) throws PSTException, MessagingException, IOException {
-        PSTFile pstFile = new PSTFile(inputFile); // throws FileNotFoundException is file doesn't exist.
-        return convert(pstFile, outputDirectory, format, encoding, skipEmptyFolders);
+        return convert(inputFile, outputDirectory, format, encoding, skipEmptyFolders, null);
     }
 
     /**
@@ -245,13 +288,15 @@ public class PstConverter {
      * @param format The output format (MBOX or EML).
      * @param encoding The charset encoding to use for character data.
      * @param skipEmptyFolders Do not create empty folders.
+     * @param includeFolder Limit processing to a specific subfolder path.
+     * @param skipRootFolder Automatically skip the root folder of the PST hierarchy.
      * @return number of successfully converted messages.
      *
      * @throws PSTException
      * @throws MessagingException
      * @throws IOException
      */
-    public PstConvertResult convert(PSTFile pstFile, File outputDirectory, MailMessageFormat format, String encoding, boolean skipEmptyFolders) throws PSTException, MessagingException, IOException {
+    public PstConvertResult convert(PSTFile pstFile, File outputDirectory, MailMessageFormat format, String encoding, boolean skipEmptyFolders, String includeFolder, boolean skipRootFolder) throws PSTException, MessagingException, IOException {
         if (outputDirectory.exists() && !outputDirectory.isDirectory()) {
             throw new IllegalArgumentException(String.format("Not a directory: %s.", outputDirectory.getAbsolutePath()));
         }
@@ -274,6 +319,21 @@ public class PstConverter {
             store.connect();
             Folder rootFolder = store.getDefaultFolder();
             PSTFolder pstRootFolder = pstFile.getRootFolder();
+            if (skipRootFolder) {
+                for (PSTFolder subFolder : pstRootFolder.getSubFolders()) {
+                    if (subFolder.getDisplayName().isEmpty()) {
+                        continue;
+                    }
+                    pstRootFolder = subFolder;
+                    break;
+                }
+            }
+            if (includeFolder != null && !includeFolder.isEmpty()) {
+                pstRootFolder = findSubFolder(pstRootFolder, includeFolder);
+                if (pstRootFolder == null) {
+                    throw new IllegalArgumentException("Folder not found: " + includeFolder);
+                }
+            }
             messageCount = convert(pstRootFolder, rootFolder, "\\", charset, skipEmptyFolders);
             watch.stop();
         } catch (PSTException | MessagingException | IOException ex) {
@@ -287,6 +347,74 @@ public class PstConverter {
             }
         }
         return new PstConvertResult(messageCount, watch.getTime());
+    }
+
+    /**
+     * Converts an Outlook OST/PST file to MBox or EML format.
+     *
+     * @param pstFile The input PST file.
+     * @param outputDirectory The directory where the email messages are
+     * extracted to and saved.
+     * @param format The output format (MBOX or EML).
+     * @param encoding The charset encoding to use for character data.
+     * @param skipEmptyFolders Do not create empty folders.
+     * @param includeFolder Limit processing to a specific subfolder path.
+     * @return number of successfully converted messages.
+     *
+     * @throws PSTException
+     * @throws MessagingException
+     * @throws IOException
+     */
+    public PstConvertResult convert(PSTFile pstFile, File outputDirectory, MailMessageFormat format, String encoding, boolean skipEmptyFolders, String includeFolder) throws PSTException, MessagingException, IOException {
+        return convert(pstFile, outputDirectory, format, encoding, skipEmptyFolders, includeFolder, false);
+    }
+
+    /**
+     * Finds a subfolder by path.
+     *
+     * @param root The root folder to start the search.
+     * @param path The path to the subfolder, separated by '/' or '\'.
+     * @return The found PSTFolder or null if not found.
+     * @throws PSTException
+     * @throws IOException
+     */
+    private PSTFolder findSubFolder(PSTFolder root, String path) throws PSTException, IOException {
+        String[] parts = path.split("[\\\\/]");
+        PSTFolder current = root;
+        for (String part : parts) {
+            if (part.isEmpty()) continue;
+            boolean found = false;
+            for (PSTFolder sub : current.getSubFolders()) {
+                if (sub.getDisplayName().equalsIgnoreCase(part)) {
+                    current = sub;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return null;
+            }
+        }
+        return current;
+    }
+
+    /**
+     * Converts an Outlook OST/PST file to MBox or EML format.
+     *
+     * @param pstFile The input PST file.
+     * @param outputDirectory The directory where the email messages are
+     * extracted to and saved.
+     * @param format The output format (MBOX or EML).
+     * @param encoding The charset encoding to use for character data.
+     * @param skipEmptyFolders Do not create empty folders.
+     * @return number of successfully converted messages.
+     *
+     * @throws PSTException
+     * @throws MessagingException
+     * @throws IOException
+     */
+    public PstConvertResult convert(PSTFile pstFile, File outputDirectory, MailMessageFormat format, String encoding, boolean skipEmptyFolders) throws PSTException, MessagingException, IOException {
+        return convert(pstFile, outputDirectory, format, encoding, skipEmptyFolders, null);
     }
 
     /**

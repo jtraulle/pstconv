@@ -79,6 +79,17 @@ public class Launcher implements Callable<Integer> {
     /**
      * 
      */
+    @Option(names = {"-I", "--include-folder"}, paramLabel = "PATH",
+            description = "Limit processing to a specific subfolder path (e.g. \"Top of Personal Folders/Contacts\").")
+    private String includeFolder;
+    /**
+     * 
+     */
+    @Option(names = {"--skip-root"}, description = "Automatically skip the root folder of the PST hierarchy.")
+    private boolean skipRootFolder = false;
+    /**
+     * 
+     */
     @Option(names = {"-v", "--version"}, versionHelp = true, description = "Print version and exit.")
     @SuppressWarnings("FieldMayBeFinal")
     private boolean versionRequested = false;
@@ -101,8 +112,8 @@ public class Launcher implements Callable<Integer> {
             converter.setFolderNamesMap(folderNamesMap);
         }
         try {
-            PstConvertResult result = converter.convert(inputFile, outputDirectory, outputFormat, encoding, skipEmptyFolders);
-            logger.info("Finished! Converted {} messages in {} seconds.", result.getMessageCount(), result.getDurationInMillis() / 1000.0);
+            PstConvertResult result = converter.convert(inputFile, outputDirectory, outputFormat, encoding, skipEmptyFolders, includeFolder, skipRootFolder);
+            logger.info("Finished! Converted {} objects in {} seconds.", result.getMessageCount(), result.getDurationInMillis() / 1000.0);
         } catch (PSTException | MessagingException | IOException ex) {
             return 1;
         }
