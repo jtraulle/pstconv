@@ -205,6 +205,50 @@ public class PstConverter {
      * @param format The output format (MBOX or EML).
      * @param encoding The charset encoding to use for character data.
      * @param skipEmptyFolders Do not create empty folders.
+     * @param includeFolder Limit processing to a specific subfolder path.
+     * @param skipRootFolder Automatically skip the root folder of the PST hierarchy.
+     * @return number of successfully converted messages and the duration of the
+     * operation in milliseconds.
+     *
+     * @throws PSTException
+     * @throws MessagingException
+     * @throws IOException
+     */
+    public PstConvertResult convert(File inputFile, File outputDirectory, MailMessageFormat format, String encoding, boolean skipEmptyFolders, String includeFolder, boolean skipRootFolder) throws PSTException, MessagingException, IOException {
+        PSTFile pstFile = new PSTFile(inputFile); // throws FileNotFoundException is file doesn't exist.
+        return convert(pstFile, outputDirectory, format, encoding, skipEmptyFolders, includeFolder, skipRootFolder);
+    }
+
+    /**
+     * Converts an Outlook OST/PST file to MBox or EML format.
+     *
+     * @param inputFile The input PST file.
+     * @param outputDirectory The directory where the email messages are
+     * extracted to and saved.
+     * @param format The output format (MBOX or EML).
+     * @param encoding The charset encoding to use for character data.
+     * @param skipEmptyFolders Do not create empty folders.
+     * @param includeFolder Limit processing to a specific subfolder path.
+     * @return number of successfully converted messages and the duration of the
+     * operation in milliseconds.
+     *
+     * @throws PSTException
+     * @throws MessagingException
+     * @throws IOException
+     */
+    public PstConvertResult convert(File inputFile, File outputDirectory, MailMessageFormat format, String encoding, boolean skipEmptyFolders, String includeFolder) throws PSTException, MessagingException, IOException {
+        return convert(inputFile, outputDirectory, format, encoding, skipEmptyFolders, includeFolder, false);
+    }
+
+    /**
+     * Converts an Outlook OST/PST file to MBox or EML format.
+     *
+     * @param inputFile The input PST file.
+     * @param outputDirectory The directory where the email messages are
+     * extracted to and saved.
+     * @param format The output format (MBOX or EML).
+     * @param encoding The charset encoding to use for character data.
+     * @param skipEmptyFolders Do not create empty folders.
      * @return number of successfully converted messages and the duration of the
      * operation in milliseconds.
      *
@@ -213,8 +257,7 @@ public class PstConverter {
      * @throws IOException
      */
     public PstConvertResult convert(File inputFile, File outputDirectory, MailMessageFormat format, String encoding, boolean skipEmptyFolders) throws PSTException, MessagingException, IOException {
-        PSTFile pstFile = new PSTFile(inputFile); // throws FileNotFoundException is file doesn't exist.
-        return convert(pstFile, outputDirectory, format, encoding, skipEmptyFolders);
+        return convert(inputFile, outputDirectory, format, encoding, skipEmptyFolders, null);
     }
 
     /**
@@ -245,13 +288,15 @@ public class PstConverter {
      * @param format The output format (MBOX or EML).
      * @param encoding The charset encoding to use for character data.
      * @param skipEmptyFolders Do not create empty folders.
+     * @param includeFolder Limit processing to a specific subfolder path.
+     * @param skipRootFolder Automatically skip the root folder of the PST hierarchy.
      * @return number of successfully converted messages.
      *
      * @throws PSTException
      * @throws MessagingException
      * @throws IOException
      */
-    public PstConvertResult convert(PSTFile pstFile, File outputDirectory, MailMessageFormat format, String encoding, boolean skipEmptyFolders) throws PSTException, MessagingException, IOException {
+    public PstConvertResult convert(PSTFile pstFile, File outputDirectory, MailMessageFormat format, String encoding, boolean skipEmptyFolders, String includeFolder, boolean skipRootFolder) throws PSTException, MessagingException, IOException {
         if (format != MailMessageFormat.TH_TXT && outputDirectory.exists() && !outputDirectory.isDirectory()) {
             throw new IllegalArgumentException(String.format("Not a directory: %s.", outputDirectory.getAbsolutePath()));
         }
@@ -282,6 +327,21 @@ public class PstConverter {
             store.connect();
             Folder rootFolder = store.getDefaultFolder();
             PSTFolder pstRootFolder = pstFile.getRootFolder();
+            if (skipRootFolder) {
+                for (PSTFolder subFolder : pstRootFolder.getSubFolders()) {
+                    if (subFolder.getDisplayName().isEmpty()) {
+                        continue;
+                    }
+                    pstRootFolder = subFolder;
+                    break;
+                }
+            }
+            if (includeFolder != null && !includeFolder.isEmpty()) {
+                pstRootFolder = findSubFolder(pstRootFolder, includeFolder);
+                if (pstRootFolder == null) {
+                    throw new IllegalArgumentException("Folder not found: " + includeFolder);
+                }
+            }
             messageCount = convert(pstRootFolder, rootFolder, "\\", charset, skipEmptyFolders);
             watch.stop();
         } catch (PSTException | MessagingException | IOException ex) {
@@ -295,6 +355,74 @@ public class PstConverter {
             }
         }
         return new PstConvertResult(messageCount, watch.getTime());
+    }
+
+    /**
+     * Converts an Outlook OST/PST file to MBox or EML format.
+     *
+     * @param pstFile The input PST file.
+     * @param outputDirectory The directory where the email messages are
+     * extracted to and saved.
+     * @param format The output format (MBOX or EML).
+     * @param encoding The charset encoding to use for character data.
+     * @param skipEmptyFolders Do not create empty folders.
+     * @param includeFolder Limit processing to a specific subfolder path.
+     * @return number of successfully converted messages.
+     *
+     * @throws PSTException
+     * @throws MessagingException
+     * @throws IOException
+     */
+    public PstConvertResult convert(PSTFile pstFile, File outputDirectory, MailMessageFormat format, String encoding, boolean skipEmptyFolders, String includeFolder) throws PSTException, MessagingException, IOException {
+        return convert(pstFile, outputDirectory, format, encoding, skipEmptyFolders, includeFolder, false);
+    }
+
+    /**
+     * Finds a subfolder by path.
+     *
+     * @param root The root folder to start the search.
+     * @param path The path to the subfolder, separated by '/' or '\'.
+     * @return The found PSTFolder or null if not found.
+     * @throws PSTException
+     * @throws IOException
+     */
+    private PSTFolder findSubFolder(PSTFolder root, String path) throws PSTException, IOException {
+        String[] parts = path.split("[\\\\/]");
+        PSTFolder current = root;
+        for (String part : parts) {
+            if (part.isEmpty()) continue;
+            boolean found = false;
+            for (PSTFolder sub : current.getSubFolders()) {
+                if (sub.getDisplayName().equalsIgnoreCase(part)) {
+                    current = sub;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return null;
+            }
+        }
+        return current;
+    }
+
+    /**
+     * Converts an Outlook OST/PST file to MBox or EML format.
+     *
+     * @param pstFile The input PST file.
+     * @param outputDirectory The directory where the email messages are
+     * extracted to and saved.
+     * @param format The output format (MBOX or EML).
+     * @param encoding The charset encoding to use for character data.
+     * @param skipEmptyFolders Do not create empty folders.
+     * @return number of successfully converted messages.
+     *
+     * @throws PSTException
+     * @throws MessagingException
+     * @throws IOException
+     */
+    public PstConvertResult convert(PSTFile pstFile, File outputDirectory, MailMessageFormat format, String encoding, boolean skipEmptyFolders) throws PSTException, MessagingException, IOException {
+        return convert(pstFile, outputDirectory, format, encoding, skipEmptyFolders, null);
     }
 
     /**
@@ -343,8 +471,9 @@ public class PstConverter {
                         exportContactToVCard((PSTContact) pstMessage, (MaildirFolder) mailFolder);
                         messageCount++;
                     } else if (pstMessage instanceof PSTDistList && mailFolder instanceof MaildirFolder) {
-                        exportDistListToVCard((PSTDistList) pstMessage, (MaildirFolder) mailFolder);
-                        messageCount++;
+                        if (exportDistListToVCard((PSTDistList) pstMessage, (MaildirFolder) mailFolder)) {
+                            messageCount++;
+                        }
                     } else if (pstMessage instanceof PSTAppointment && mailFolder instanceof MaildirFolder) {
                         if (isMeetingInvitation(pstMessage)) {
                             messages[0] = convertToMimeMessage(pstMessage, charset);
@@ -816,7 +945,7 @@ public class PstConverter {
 
     private void exportContactToVCard(PSTContact contact, MaildirFolder maildirFolder) throws MessagingException {
         String descriptorIndex = Long.toString(contact.getDescriptorNodeId());
-        String uid = "PST-" + descriptorIndex;
+        String uid = "PST-VC-" + descriptorIndex;
         String fileName = uid + ".vcf";
         File vcfFile = new File(maildirFolder.getDirectory(), fileName);
 
@@ -835,9 +964,76 @@ public class PstConverter {
         if ((firstName != null && !firstName.isEmpty()) || (lastName != null && !lastName.isEmpty())) {
             vcard.append("N:").append(coalesce("", lastName)).append(";").append(coalesce("", firstName)).append(";;;\r\n");
         }
+        String nickname = contact.getNickname();
+        if (nickname != null && !nickname.isEmpty()) {
+            vcard.append("NICKNAME:").append(nickname).append("\r\n");
+        }
+        String title = contact.getTitle();
+        if (title != null && !title.isEmpty()) {
+            vcard.append("TITLE:").append(title).append("\r\n");
+        }
+        String companyName = contact.getCompanyName();
+        if (companyName != null && !companyName.isEmpty()) {
+            vcard.append("ORG:").append(companyName).append("\r\n");
+        }
         String email = contact.getEmail1EmailAddress();
         if (email != null && !email.isEmpty()) {
-            vcard.append("EMAIL;TYPE=PREF,INTERNET:").append(email).append("\r\n");
+            vcard.append("EMAIL:").append(email).append("\r\n");
+        }
+
+        // Phone numbers
+        String workPhone = contact.getBusinessTelephoneNumber();
+        if (workPhone != null && !workPhone.isEmpty()) {
+            vcard.append("TEL;TYPE=work:").append(workPhone).append("\r\n");
+        }
+        String homePhone = contact.getHomeTelephoneNumber();
+        if (homePhone != null && !homePhone.isEmpty()) {
+            vcard.append("TEL;TYPE=home:").append(homePhone).append("\r\n");
+        }
+        String mobilePhone = contact.getMobileTelephoneNumber();
+        if (mobilePhone != null && !mobilePhone.isEmpty()) {
+            vcard.append("TEL;TYPE=cell:").append(mobilePhone).append("\r\n");
+        }
+        String faxPhone = contact.getBusinessFaxNumber();
+        if (faxPhone != null && !faxPhone.isEmpty()) {
+            vcard.append("TEL;TYPE=fax:").append(faxPhone).append("\r\n");
+        }
+
+        // Addresses
+        String workStreet = contact.getWorkAddressStreet();
+        String workCity = contact.getWorkAddressCity();
+        String workState = contact.getWorkAddressState();
+        String workPostalCode = contact.getWorkAddressPostalCode();
+        String workCountry = contact.getWorkAddressCountry();
+        String workPoBox = contact.getWorkAddressPostOfficeBox();
+
+        if (coalesce("", workStreet, workCity, workState, workPostalCode, workCountry, workPoBox).length() > 0) {
+            vcard.append("ADR;TYPE=work:").append(coalesce("", workPoBox)).append(";")
+                    .append("") // Extended address (appartement/bureau 2nd line)
+                    .append(";").append(coalesce("", workStreet).replace("\n", " ").replace("\r", ""))
+                    .append(";").append(coalesce("", workCity))
+                    .append(";").append(coalesce("", workState))
+                    .append(";").append(coalesce("", workPostalCode))
+                    .append(";").append(coalesce("", workCountry))
+                    .append("\r\n");
+        }
+
+        String homeStreet = contact.getHomeAddressStreet();
+        String homeCity = contact.getHomeAddressCity();
+        String homeState = contact.getHomeAddressStateOrProvince();
+        String homePostalCode = contact.getHomeAddressPostalCode();
+        String homeCountry = contact.getHomeAddressCountry();
+        String homePoBox = contact.getHomeAddressPostOfficeBox();
+
+        if (coalesce("", homeStreet, homeCity, homeState, homePostalCode, homeCountry, homePoBox).length() > 0) {
+            vcard.append("ADR;TYPE=home:").append(coalesce("", homePoBox)).append(";")
+                    .append("")
+                    .append(";").append(coalesce("", homeStreet).replace("\n", " ").replace("\r", ""))
+                    .append(";").append(coalesce("", homeCity))
+                    .append(";").append(coalesce("", homeState))
+                    .append(";").append(coalesce("", homePostalCode))
+                    .append(";").append(coalesce("", homeCountry))
+                    .append("\r\n");
         }
 
         vcard.append("END:VCARD\r\n");
@@ -849,7 +1045,12 @@ public class PstConverter {
         }
     }
 
-    private void exportDistListToVCard(PSTDistList distList, MaildirFolder maildirFolder) throws MessagingException {
+    private boolean exportDistListToVCard(PSTDistList distList, MaildirFolder maildirFolder) throws MessagingException {
+        Object[] members = distList.getDistributionListMembersSafe();
+        if (members == null || members.length == 0) {
+            return false;
+        }
+
         String descriptorIndex = Long.toString(distList.getDescriptorNodeId());
         String uid = "PST-VL-" + descriptorIndex;
         String fileName = uid + ".vcf";
@@ -857,55 +1058,32 @@ public class PstConverter {
 
         StringBuilder vlist = new StringBuilder();
         vlist.append("BEGIN:VLIST\r\n");
-        vlist.append("UID:").append(uid).append("\r\n");
+        vlist.append("UID:").append(uid).append(".vcf").append("\r\n");
         vlist.append("VERSION:1.0\r\n");
 
-        try {
-            // In java-libpst 0.9.3, getDistributionListMembers returns Object[] 
-            // which usually contains String or other objects representing members.
-            // Since we don't have direct access to linked contact UIDs easily,
-            // we'll try to extract what we can.
-            System.out.println("=====>" + distList.getDisplayName());
-            Object[] members = distList.getDistributionListMembersSafe();
-
-            if (members == null || members.length == 0) {
-                System.out.println("  Aucun membre dans cette liste");
-            } else {
-                System.out.println("  Nombre de membres: " + members.length);
-
-                for (int i = 0; i < members.length; i++) {
-                    try {
-                        Object member = members[i];
-                        System.out.println("  Membre " + i + ": " + member.getClass().getSimpleName());
-
-                        if (member instanceof PSTContact contact) {
-                            System.out.println("    Email: " + contact.getEmail1EmailAddress());
-                        }
-                    } catch (Exception e) {
-                        System.err.println("  Erreur sur le membre " + i + ": " + e.getMessage());
-                    }
+        for (int i = 0; i < members.length; i++) {
+            try {
+                Object member = members[i];
+                if (member instanceof PSTContact contact) {
+                    vlist.append("CARD;")
+                            .append(escapeICalendar(contact.getEmail1EmailAddress()))
+                            .append(";FN=")
+                            .append(escapeICalendar(contact.getDisplayName()))
+                            .append(":")
+                            .append("PST-VC-")
+                            .append(contact.getDescriptorNodeId())
+                            .append(".vcf")
+                            .append("\r\n");
+                } else if (member instanceof PSTDistList.OneOffEntry entry) {
+                    vlist.append("MEMBER;FN=")
+                            .append(escapeICalendar(entry.getDisplayName()))
+                            .append(":")
+                            .append(escapeICalendar(entry.getEmailAddress()))
+                            .append("\r\n");
                 }
+            } catch (Exception e) {
+                logger.warn("Error processing member {} of distribution list {}", i, uid, e);
             }
-
-            /*
-            if (members != null) {
-                for (Object member : members) {
-                    System.out.println(member.getClass().getSimpleName());
-                    if (member instanceof PSTContact contact) {
-                        vlist.append("CARD;")
-                                .append(escapeICalendar(contact.getEmailAddress()))
-                                .append(";FN=")
-                                .append(escapeICalendar(contact.getDisplayName()))
-                                .append(":")
-                                .append("PST-VC-")
-                                .append(contact.getDescriptorNodeId())
-                                .append("\r\n");
-                    }
-                }
-            }
-            */
-        } catch (Exception ex) {
-            logger.warn("Failed to get entries for distribution list {}", uid, ex);
         }
 
         String groupName = distList.getDisplayName();
@@ -922,6 +1100,7 @@ public class PstConverter {
         } catch (IOException ex) {
             throw new MessagingException("Failed to write VCARD (VLIST) file: " + vcfFile.getAbsolutePath(), ex);
         }
+        return true;
     }
 
     private String getAppointmentICalendar(PSTAppointment appointment) {

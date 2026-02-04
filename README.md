@@ -19,6 +19,10 @@ usage: java -jar pstconv.jar [OPTIONS]
                             formats: mbox, eml, maildir, th_txt. Default is
                             mbox.
  -h,--help                  Print help and exit.
+ -I,--include-folder <PATH> Limit processing to a specific subfolder path
+                            (e.g. "Top of Personal Folders/Contacts").
+    --skip-root             Automatically skip the root folder of the PST 
+                            hierarchy.
  -i,--input <FILE>          Path to OST/PST input file. Required option.
  -o,--output <DIRECTORY>    Path to MBOX/EML/MAILDIR output directory. If it
                             doesn't exist, the application will attempt to
