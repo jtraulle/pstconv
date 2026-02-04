@@ -925,7 +925,7 @@ public class PstConverter {
 
     private void exportContactToVCard(PSTContact contact, MaildirFolder maildirFolder) throws MessagingException {
         String descriptorIndex = Long.toString(contact.getDescriptorNodeId());
-        String uid = "PST-" + descriptorIndex;
+        String uid = "PST-VC-" + descriptorIndex;
         String fileName = uid + ".vcf";
         File vcfFile = new File(maildirFolder.getDirectory(), fileName);
 
@@ -944,9 +944,76 @@ public class PstConverter {
         if ((firstName != null && !firstName.isEmpty()) || (lastName != null && !lastName.isEmpty())) {
             vcard.append("N:").append(coalesce("", lastName)).append(";").append(coalesce("", firstName)).append(";;;\r\n");
         }
+        String nickname = contact.getNickname();
+        if (nickname != null && !nickname.isEmpty()) {
+            vcard.append("NICKNAME:").append(nickname).append("\r\n");
+        }
+        String title = contact.getTitle();
+        if (title != null && !title.isEmpty()) {
+            vcard.append("TITLE:").append(title).append("\r\n");
+        }
+        String companyName = contact.getCompanyName();
+        if (companyName != null && !companyName.isEmpty()) {
+            vcard.append("ORG:").append(companyName).append("\r\n");
+        }
         String email = contact.getEmail1EmailAddress();
         if (email != null && !email.isEmpty()) {
-            vcard.append("EMAIL;TYPE=PREF,INTERNET:").append(email).append("\r\n");
+            vcard.append("EMAIL:").append(email).append("\r\n");
+        }
+
+        // Phone numbers
+        String workPhone = contact.getBusinessTelephoneNumber();
+        if (workPhone != null && !workPhone.isEmpty()) {
+            vcard.append("TEL;TYPE=work:").append(workPhone).append("\r\n");
+        }
+        String homePhone = contact.getHomeTelephoneNumber();
+        if (homePhone != null && !homePhone.isEmpty()) {
+            vcard.append("TEL;TYPE=home:").append(homePhone).append("\r\n");
+        }
+        String mobilePhone = contact.getMobileTelephoneNumber();
+        if (mobilePhone != null && !mobilePhone.isEmpty()) {
+            vcard.append("TEL;TYPE=cell:").append(mobilePhone).append("\r\n");
+        }
+        String faxPhone = contact.getBusinessFaxNumber();
+        if (faxPhone != null && !faxPhone.isEmpty()) {
+            vcard.append("TEL;TYPE=fax:").append(faxPhone).append("\r\n");
+        }
+
+        // Addresses
+        String workStreet = contact.getWorkAddressStreet();
+        String workCity = contact.getWorkAddressCity();
+        String workState = contact.getWorkAddressState();
+        String workPostalCode = contact.getWorkAddressPostalCode();
+        String workCountry = contact.getWorkAddressCountry();
+        String workPoBox = contact.getWorkAddressPostOfficeBox();
+
+        if (coalesce("", workStreet, workCity, workState, workPostalCode, workCountry, workPoBox).length() > 0) {
+            vcard.append("ADR;TYPE=work:").append(coalesce("", workPoBox)).append(";")
+                    .append("") // Extended address (appartement/bureau 2nd line)
+                    .append(";").append(coalesce("", workStreet).replace("\n", " ").replace("\r", ""))
+                    .append(";").append(coalesce("", workCity))
+                    .append(";").append(coalesce("", workState))
+                    .append(";").append(coalesce("", workPostalCode))
+                    .append(";").append(coalesce("", workCountry))
+                    .append("\r\n");
+        }
+
+        String homeStreet = contact.getHomeAddressStreet();
+        String homeCity = contact.getHomeAddressCity();
+        String homeState = contact.getHomeAddressStateOrProvince();
+        String homePostalCode = contact.getHomeAddressPostalCode();
+        String homeCountry = contact.getHomeAddressCountry();
+        String homePoBox = contact.getHomeAddressPostOfficeBox();
+
+        if (coalesce("", homeStreet, homeCity, homeState, homePostalCode, homeCountry, homePoBox).length() > 0) {
+            vcard.append("ADR;TYPE=home:").append(coalesce("", homePoBox)).append(";")
+                    .append("")
+                    .append(";").append(coalesce("", homeStreet).replace("\n", " ").replace("\r", ""))
+                    .append(";").append(coalesce("", homeCity))
+                    .append(";").append(coalesce("", homeState))
+                    .append(";").append(coalesce("", homePostalCode))
+                    .append(";").append(coalesce("", homeCountry))
+                    .append("\r\n");
         }
 
         vcard.append("END:VCARD\r\n");
