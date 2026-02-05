@@ -1120,6 +1120,9 @@ public class PstConverter {
         ical.append("DTSTAMP:").append(now).append("\r\n");
 
         Date start = appointment.getStartTime();
+        if (appointment.isRecurring() && appointment.getRecurrenceBase() != null) {
+            start = appointment.getRecurrenceBase();
+        }
         if (start != null) {
             ical.append("DTSTART:").append(sdf.format(start)).append("\r\n");
         }
@@ -1143,15 +1146,35 @@ public class PstConverter {
             ical.append("DESCRIPTION:").append(escapeICalendar(description)).append("\r\n");
         }
 
+        int sensitivity = appointment.getSensitivity();
+        String classification;
+        switch (sensitivity) {
+            case 1:
+            case 2:
+                classification = "PRIVATE";
+                break;
+            case 3:
+                classification = "CONFIDENTIAL";
+                break;
+            case 0:
+            default:
+                classification = "PUBLIC";
+                break;
+        }
+        ical.append("CLASS:").append(classification).append("\r\n");
+
         try {
-            String recurrence = appointment.getRecurrencePattern();
-            if (recurrence != null && !recurrence.isEmpty()) {
-                // Since java-libpst returns a string for recurrence pattern in this version,
-                // we'll try to include it. Note: it might not be a valid RRULE directly.
-                ical.append("RRULE:").append(recurrence).append("\r\n");
+            if (appointment.isRecurring()) {
+                byte[] structure = appointment.getRecurrenceStructure();
+                if (structure != null && structure.length > 0) {
+                    String rrule = parseRecurrenceStructure(structure);
+                    if (rrule != null) {
+                        ical.append("RRULE:").append(rrule).append("\r\n");
+                    }
+                }
             }
         } catch (Exception ex) {
-            logger.warn("Failed to get recurrence pattern for appointment {}", uid, ex);
+            logger.warn("Failed to get recurrence structure for appointment {}", uid, ex);
         }
 
         ical.append("END:VEVENT\r\n");
@@ -1248,19 +1271,6 @@ public class PstConverter {
         double percentComplete = task.getPercentComplete();
         ical.append("PERCENT-COMPLETE:").append((int) (percentComplete * 100)).append("\r\n");
 
-        try {
-            // Check if recurrence pattern can be accessed.
-            // Some versions of java-libpst use getRecurrencePattern() for tasks as well.
-            // If it's missing or named differently, we'll catch the error.
-            java.lang.reflect.Method method = task.getClass().getMethod("getRecurrencePattern");
-            String recurrence = (String) method.invoke(task);
-            if (recurrence != null && !recurrence.isEmpty()) {
-                ical.append("RRULE:").append(recurrence).append("\r\n");
-            }
-        } catch (Exception ex) {
-            // Not available or failed, skip recurrence for task
-        }
-
         ical.append("END:VTODO\r\n");
         ical.append("END:VCALENDAR\r\n");
 
@@ -1305,6 +1315,94 @@ public class PstConverter {
                 listFolders(subFolder, prefix + "│   ", skipEmptyFolders);
             }
         }
+    }
+
+    private String parseRecurrenceStructure(byte[] data) {
+        if (data == null || data.length < 22) {
+            return null;
+        }
+
+        // MS-OXOCAL 2.2.1.44 PidLidRecurrencePattern
+        // ReaderVersion: data[0-1]
+        // WriterVersion: data[2-3]
+        // RecurFrequency: data[4-5]
+        int recurFrequency = (data[4] & 0xFF) | ((data[5] & 0xFF) << 8);
+        // PatternType: data[6-7]
+        int patternType = (data[6] & 0xFF) | ((data[7] & 0xFF) << 8);
+        // CalendarType: data[8-9]
+        // FirstDateTime: data[10-13]
+        // Period: data[14-17]
+        long period = (data[14] & 0xFFL) | ((data[15] & 0xFFL) << 8) | ((data[16] & 0xFFL) << 16) | ((data[17] & 0xFFL) << 24);
+        // SlidingFlag: data[18-21]
+
+        StringBuilder rrule = new StringBuilder();
+        switch (recurFrequency) {
+            case 0x200A: // Daily
+                rrule.append("FREQ=DAILY");
+                break;
+            case 0x200B: // Weekly
+                rrule.append("FREQ=WEEKLY");
+                // MS-OXOCAL 2.2.1.44.1.2 Weekly Recurrence Pattern
+                if (data.length >= 26) {
+                    int dayMask = (data[22] & 0xFF) | ((data[23] & 0xFF) << 8) | ((data[24] & 0xFF) << 16) | ((data[25] & 0xFF) << 24);
+                    String byDay = convertDayMaskToByDay(dayMask);
+                    if (!byDay.isEmpty()) {
+                        rrule.append(";BYDAY=").append(byDay);
+                    }
+                }
+                break;
+            case 0x200C: // Monthly
+                rrule.append("FREQ=MONTHLY");
+                if (patternType == 2 || patternType == 3) { // MonthPattern or MonthEndPattern
+                    if (data.length >= 26) {
+                        int dayOfMonth = (data[22] & 0xFF) | ((data[23] & 0xFF) << 8) | ((data[24] & 0xFF) << 16) | ((data[25] & 0xFF) << 24);
+                        rrule.append(";BYMONTHDAY=").append(dayOfMonth);
+                    }
+                } else if (patternType == 4) { // MonthNthPattern
+                    if (data.length >= 30) {
+                        int dayMask = (data[22] & 0xFF) | ((data[23] & 0xFF) << 8) | ((data[24] & 0xFF) << 16) | ((data[25] & 0xFF) << 24);
+                        int nth = (data[26] & 0xFF) | ((data[27] & 0xFF) << 8) | ((data[28] & 0xFF) << 16) | ((data[29] & 0xFF) << 24);
+                        String byDay = convertDayMaskToByDay(dayMask);
+                        if (!byDay.isEmpty()) {
+                            // nth: 1 to 4, or 5 for last
+                            rrule.append(";BYDAY=").append(nth == 5 ? "-1" : nth).append(byDay);
+                        }
+                    }
+                }
+                break;
+            case 0x200D: // Yearly
+                rrule.append("FREQ=YEARLY");
+                break;
+            default:
+                return null;
+        }
+
+        if (period > 1) {
+            rrule.append(";INTERVAL=").append(period);
+        }
+
+        // End type is further in the structure, but it depends on the pattern type which affects the offset.
+        // For simplicity and safety, we focus on the frequency, interval and day masking which are most critical.
+        
+        return rrule.toString();
+    }
+
+    private String convertDayMaskToByDay(int dayMask) {
+        // MS-OXOCAL 2.2.1.44.1.2 DayMask
+        // bit 0: Sunday, bit 1: Monday, ..., bit 6: Saturday
+        StringBuilder sb = new StringBuilder();
+        if ((dayMask & 0x01) != 0) sb.append("SU,");
+        if ((dayMask & 0x02) != 0) sb.append("MO,");
+        if ((dayMask & 0x04) != 0) sb.append("TU,");
+        if ((dayMask & 0x08) != 0) sb.append("WE,");
+        if ((dayMask & 0x10) != 0) sb.append("TH,");
+        if ((dayMask & 0x20) != 0) sb.append("FR,");
+        if ((dayMask & 0x40) != 0) sb.append("SA,");
+        
+        if (sb.length() > 0) {
+            sb.setLength(sb.length() - 1); // remove last comma
+        }
+        return sb.toString();
     }
 
     private String escapeICalendar(String text) {

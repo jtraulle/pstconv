@@ -491,4 +491,47 @@ public class PstConverterTest {
             System.setOut(oldOut);
         }
     }
+    @Test
+    public void testParseRecurrenceStructure() throws Exception {
+        // Daily, Interval 1
+        byte[] daily = new byte[22];
+        daily[4] = 0x0A; daily[5] = 0x20; // RecurFrequency 0x200A
+        daily[14] = 1; // Period 1
+        
+        java.lang.reflect.Method method = instance.getClass().getDeclaredMethod("parseRecurrenceStructure", byte[].class);
+        method.setAccessible(true);
+        
+        String result = (String) method.invoke(instance, (Object) daily);
+        assertEquals("FREQ=DAILY", result);
+        
+        // Weekly, Interval 2, Monday and Wednesday
+        byte[] weekly = new byte[26];
+        weekly[4] = 0x0B; weekly[5] = 0x20; // RecurFrequency 0x200B
+        weekly[14] = 2; // Period 2
+        weekly[22] = 0x02 | 0x08; // DayMask MO (0x02) | WE (0x08) = 0x0A
+        
+        result = (String) method.invoke(instance, (Object) weekly);
+        assertEquals("FREQ=WEEKLY;BYDAY=MO,WE;INTERVAL=2", result);
+
+        // Monthly, Day 15, Interval 1
+        byte[] monthly = new byte[26];
+        monthly[4] = 0x0C; monthly[5] = 0x20; // RecurFrequency 0x200C
+        monthly[6] = 2; // PatternType MonthPattern
+        monthly[14] = 1; // Period 1
+        monthly[22] = 15; // DayOfMonth 15
+        
+        result = (String) method.invoke(instance, (Object) monthly);
+        assertEquals("FREQ=MONTHLY;BYMONTHDAY=15", result);
+        
+        // Monthly Nth, Last Friday, Interval 3
+        byte[] monthlyNth = new byte[30];
+        monthlyNth[4] = 0x0C; monthlyNth[5] = 0x20; // RecurFrequency 0x200C
+        monthlyNth[6] = 4; // PatternType MonthNthPattern
+        monthlyNth[14] = 3; // Period 3
+        monthlyNth[22] = 0x20; // DayMask FR (0x20)
+        monthlyNth[26] = 5; // Nth 5 (Last)
+        
+        result = (String) method.invoke(instance, (Object) monthlyNth);
+        assertEquals("FREQ=MONTHLY;BYDAY=-1FR;INTERVAL=3", result);
+    }
 }
