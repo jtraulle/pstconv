@@ -152,7 +152,7 @@ public class PSTDistList extends PSTMessage {
      * @return the one-off entry
      */
     private OneOffEntry parseOneOffEntry(final byte[] data, int pos) throws IOException {
-        // Validation: vérifier qu'il y a assez de données
+        // Validation: verify that there is enough data
         if (pos + 4 > data.length) {
             throw new IOException("Not enough data to parse one-off entry");
         }
@@ -233,7 +233,7 @@ public class PSTDistList extends PSTMessage {
             return new Object[0];
         }
 
-        // Validation: vérifier qu'il y a assez de données pour lire le count
+        // Validation: verify that there is enough data to read the count
         if (item.data.length < 4) {
             return new Object[0];
         }
@@ -241,7 +241,7 @@ public class PSTDistList extends PSTMessage {
         int pos = 0;
         final int count = (int) PSTObject.convertLittleEndianBytesToLong(item.data, pos, pos + 4);
 
-        // Validation: vérifier que le count est raisonnable
+        // Validation: verify that the count is reasonable
         if (count < 0 || count > 10000) {
             return new Object[0];
         }
@@ -257,17 +257,17 @@ public class PSTDistList extends PSTMessage {
         pos += 4;
         pos = (int) PSTObject.convertLittleEndianBytesToLong(item.data, pos, pos + 4);
 
-        // Validation: vérifier que le nouveau pos est dans les limites
+        // Validation: verify that the new pos is within limits
         if (pos < 0 || pos >= item.data.length) {
             throw new PSTException("Invalid data offset: " + pos);
         }
 
-        // Utiliser une liste pour collecter seulement les membres valides
+        // Use a list to collect only valid members
         final List<Object> validMembers = new ArrayList<>(count);
 
         for (int x = 0; x < count; x++) {
             try {
-                // Validation: vérifier qu'il y a assez de données pour lire l'entrée
+                // Validation: verify that there is enough data to read the entry
                 if (pos + 20 > item.data.length) {
                     System.err.println("Warning: Not enough data for member " + x + " at position " + pos);
                     break;
@@ -283,7 +283,7 @@ public class PSTDistList extends PSTMessage {
                 pos += 16;
 
                 if (Arrays.equals(guid, this.wrappedEntryIdUid)) {
-                    // Validation: vérifier qu'il y a assez de données pour un wrapped entry
+                    // Validation: verify that there is enough data for a wrapped entry
                     if (pos + 24 > item.data.length) {
                         System.err.println("Warning: Not enough data for wrapped entry at position " + pos);
                         break;
@@ -291,14 +291,14 @@ public class PSTDistList extends PSTMessage {
 
                     /* c3 */
                     final int entryType = item.data[pos] & 0x0F;
-                    final int entryAddressType = (item.data[pos] & 0x70) >> 4;  // CORRECTION: ajout de parenthèses
+                    final int entryAddressType = (item.data[pos] & 0x70) >> 4;  // CORRECTION: add parentheses
                     final boolean isOneOffEntryId = (item.data[pos] & 0x80) > 0;
                     pos++;
                     final int wrappedflags = (int) PSTObject.convertLittleEndianBytesToLong(item.data, pos, pos + 4);
                     pos += 4;
 
                     final byte[] guid2 = new byte[16];
-                    System.arraycopy(item.data, pos, guid2, 0, guid2.length);  // CORRECTION: copier dans guid2 au lieu de guid
+                    System.arraycopy(item.data, pos, guid2, 0, guid2.length);  // CORRECTION: copy into guid2 instead of guid
                     pos += 16;
 
                     final int descriptorIndex = (int) PSTObject.convertLittleEndianBytesToLong(item.data, pos, pos + 3);
@@ -313,7 +313,7 @@ public class PSTDistList extends PSTMessage {
                     } catch (PSTException e) {
                         //System.err.println("Warning: Unable to load member " + x + " with descriptor index "
                         //        + descriptorIndex + ": " + e.getMessage());
-                        // Continue avec les autres membres au lieu de tout arrêter
+                        // Continue with other members instead of stopping everything
                     }
 
                 } else if (Arrays.equals(guid, this.oneOffEntryIdUid)) {
@@ -324,19 +324,19 @@ public class PSTDistList extends PSTMessage {
                     } catch (IOException e) {
                         System.err.println("Warning: Unable to parse one-off entry for member " + x + ": "
                                 + e.getMessage());
-                        // Arrêter le parsing car on ne peut pas déterminer la position suivante
+                        // Stop parsing because we cannot determine the next position
                         break;
                     }
                 } else {
-                    // GUID inconnu - logger et continuer
+                    // Unknown GUID - log and continue
                     System.err.println("Warning: Unknown GUID for member " + x + ", skipping");
-                    // On ne peut pas déterminer la taille de cette entrée, on arrête
+                    // We cannot determine the size of this entry, so we stop
                     break;
                 }
 
             } catch (Exception e) {
                 System.err.println("Error processing member " + x + ": " + e.getMessage());
-                // Continue avec les autres membres si possible
+                // Continue with other members if possible
             }
         }
 
