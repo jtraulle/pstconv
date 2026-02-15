@@ -59,9 +59,14 @@ public class MaildirFolder extends LocalFolder {
         String id = getDescriptorNodeId(msg);
         String fileName = getMaildirFileName(msg, id);
         
+        // Check for existing file with same base name (ignoring mbsync UID)
+        File curFile = findExistingFile(fileName);
+        if (curFile == null) {
+            curFile = new File(curDir, fileName);
+        }
+        
         // Use tmp/ for initial write, then move to cur/
         File tmpFile = new File(tmpDir, fileName);
-        File curFile = new File(curDir, fileName);
         
         try (FileOutputStream outputStream = new FileOutputStream(tmpFile)) {
             msg.writeTo(outputStream);
@@ -70,13 +75,50 @@ public class MaildirFolder extends LocalFolder {
         }
         
         if (!tmpFile.renameTo(curFile)) {
-             throw new MessagingException("Failed to move message from tmp/ to cur/");
+             // If renameTo fails, it might be because the destination exists.
+             // Although on many systems renameTo overwrites.
+             // Let's try to delete it first if it exists and rename failed.
+             if (curFile.exists() && !curFile.delete()) {
+                 throw new MessagingException("Failed to delete existing message file: " + curFile.getName());
+             }
+             if (!tmpFile.renameTo(curFile)) {
+                 throw new MessagingException("Failed to move message from tmp/ to cur/");
+             }
         }
 
         // Set the file modification time to the message delivery time, if available.
         String[] deliveryTimeHeader = msg.getHeader("X-PST-Delivery-Time");
         long timestamp = Long.parseLong(deliveryTimeHeader[0]);
         curFile.setLastModified(timestamp);
+    }
+
+    private File findExistingFile(String fileName) {
+        // Expected format: <timestamp>.<id>:2,<flags>
+        // mbsync format: <timestamp>.<id>,U=<uid>:2,<flags>
+        int colonIndex = fileName.lastIndexOf(":2,");
+        if (colonIndex == -1) {
+            return null;
+        }
+        String base = fileName.substring(0, colonIndex);
+        String flags = fileName.substring(colonIndex);
+        
+        File[] files = curDir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                String existingName = file.getName();
+                if (existingName.endsWith(flags)) {
+                    int existingColonIndex = existingName.lastIndexOf(":2,");
+                    if (existingColonIndex != -1) {
+                        String existingBase = existingName.substring(0, existingColonIndex);
+                        // Check if existingBase starts with base followed by "," or is equal to base
+                        if (existingBase.equals(base) || existingBase.startsWith(base + ",")) {
+                            return file;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     @Override
