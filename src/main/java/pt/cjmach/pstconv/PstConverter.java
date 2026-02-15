@@ -328,12 +328,28 @@ public class PstConverter {
             Folder rootFolder = store.getDefaultFolder();
             PSTFolder pstRootFolder = pstFile.getRootFolder();
             if (skipRootFolder) {
+                PSTFolder candidate = null;
                 for (PSTFolder subFolder : pstRootFolder.getSubFolders()) {
-                    if (subFolder.getDisplayName().isEmpty()) {
+                    String displayName = subFolder.getDisplayName();
+                    if (displayName.isEmpty()) {
                         continue;
                     }
-                    pstRootFolder = subFolder;
-                    break;
+                    // Prioritize known "main" folder names
+                    if ("Top of Outlook Data File".equals(displayName)
+                            || "Top of Personal Folders".equals(displayName)
+                            || "Début du fichier de données Outlook".equals(displayName)
+                            || "Partie supérieure des Dossiers personnels".equals(displayName)
+                            || "IPM_SUBTREE".equals(displayName)) {
+                        candidate = subFolder;
+                        break;
+                    }
+                    // Fallback to the first non-empty named folder if no priority match is found
+                    if (candidate == null) {
+                        candidate = subFolder;
+                    }
+                }
+                if (candidate != null) {
+                    pstRootFolder = candidate;
                 }
             }
             if (includeFolder != null && !includeFolder.isEmpty()) {
