@@ -1161,6 +1161,10 @@ public class PstConverter {
         if (description != null && !description.isEmpty()) {
             ical.append("DESCRIPTION:").append(escapeICalendar(description)).append("\r\n");
         }
+        String descriptionHTML = appointment.getBodyHTML();
+        if (descriptionHTML != null && !descriptionHTML.isEmpty()) {
+            ical.append("X-ALT-DESC;FMTTYPE=text/html:").append(escapeICalendar(descriptionHTML)).append("\r\n");
+        }
 
         int sensitivity = appointment.getSensitivity();
         String classification;
@@ -1180,6 +1184,164 @@ public class PstConverter {
         ical.append("CLASS:").append(classification).append("\r\n");
 
         try {
+            String[] categories = appointment.getColorCategories();
+            if (categories != null && categories.length > 0) {
+                StringBuilder categoriesBuilder = new StringBuilder("CATEGORIES:");
+                for (int i = 0; i < categories.length; i++) {
+                    if (i > 0) {
+                        categoriesBuilder.append(",");
+                    }
+                    categoriesBuilder.append(escapeICalendar(categories[i]));
+                }
+                categoriesBuilder.append("\r\n");
+                ical.append(categoriesBuilder.toString());
+            }
+        } catch (PSTException ex) {
+            logger.warn("Failed to get categories for appointment {}", uid, ex);
+        }
+
+        int meetingStatus = appointment.getMeetingStatus();
+        // 1: meeting, 3: meetingReceived, 5: meetingCanceled, 7: meetingCanceledReceived
+        // 0: non-meeting
+        if (meetingStatus == 5 || meetingStatus == 7) {
+            ical.append("STATUS:CANCELLED\r\n");
+        } else {
+            int responseStatus = appointment.getResponseStatus();
+            switch (responseStatus) {
+                case 3: // Accepted
+                case 1: // Organized
+                    ical.append("STATUS:CONFIRMED\r\n");
+                    break;
+                case 4: // Declined
+                    ical.append("STATUS:CANCELLED\r\n");
+                    break;
+                case 2: // Tentative
+                    ical.append("STATUS:TENTATIVE\r\n");
+                    break;
+            }
+        }
+        
+        String senderName = appointment.getSenderName();
+        String senderEmail = appointment.getSenderEmailAddress();
+        if (senderEmail != null && !senderEmail.isEmpty()) {
+            StringBuilder organizer = new StringBuilder("ORGANIZER");
+            if (senderName != null && !senderName.isEmpty()) {
+                organizer.append(";CN=\"").append(escapeICalendar(senderName)).append("\"");
+            }
+            if (!senderEmail.contains(":")) {
+                senderEmail = "mailto:" + senderEmail;
+            }
+            organizer.append(":").append(senderEmail).append("\r\n");
+            ical.append(organizer.toString());
+        }
+
+        try {
+            for (int i = 0; i < appointment.getNumberOfRecipients(); i++) {
+                PSTRecipient recipient = appointment.getRecipient(i);
+                String email = recipient.getSmtpAddress();
+                if (email == null || email.isEmpty()) {
+                    email = recipient.getEmailAddress();
+                }
+                if (email != null && !email.isEmpty() && !email.contains(":")) {
+                    email = "mailto:" + email;
+                }
+                
+                StringBuilder attendee = new StringBuilder("ATTENDEE");
+                String displayName = recipient.getDisplayName();
+                if (displayName != null && !displayName.isEmpty()) {
+                    attendee.append(";CN=\"").append(escapeICalendar(displayName)).append("\"");
+                }
+                
+                // Map recipient type to ROLE
+                String role = "REQ-PARTICIPANT";
+                switch (recipient.getRecipientType()) {
+                    case PSTRecipient.MAPI_TO:
+                        role = "REQ-PARTICIPANT";
+                        break;
+                    case PSTRecipient.MAPI_CC:
+                        role = "OPT-PARTICIPANT";
+                        break;
+                    case PSTRecipient.MAPI_BCC:
+                        role = "NON-PARTICIPANT";
+                        break;
+                }
+
+                // If this recipient is also the organizer, mark them as CHAIR
+                if (senderEmail != null && email != null && email.equalsIgnoreCase(senderEmail)) {
+                    role = "CHAIR";
+                }
+                
+                attendee.append(";ROLE=").append(role);
+                
+                // Participation status (PARTSTAT)
+                try {
+                    java.lang.reflect.Field detailsField = recipient.getClass().getDeclaredField("details");
+                    detailsField.setAccessible(true);
+                    Map<Integer, Object> details = (Map<Integer, Object>) detailsField.get(recipient);
+                    Object item = details.get(0x0044); // PidTagRecipientResponseStatus
+                    if (item != null) {
+                        java.lang.reflect.Method getLongValueMethod = item.getClass().getMethod("getLongValue");
+                        long responseStatus = (Long) getLongValueMethod.invoke(item);
+                        String partstat = "NEEDS-ACTION";
+                        switch ((int) responseStatus) {
+                            case 3: // respAccepted
+                                partstat = "ACCEPTED";
+                                break;
+                            case 4: // respDeclined
+                                partstat = "DECLINED";
+                                break;
+                            case 2: // respTentative
+                                partstat = "TENTATIVE";
+                                break;
+                            case 1: // respOrganized
+                                partstat = "ACCEPTED";
+                                break;
+                            case 0: // respNone
+                            default:
+                                partstat = "NEEDS-ACTION";
+                                break;
+                        }
+                        attendee.append(";PARTSTAT=").append(partstat);
+                    } else {
+                        // If no recipient-specific status, try to use the appointment's own response status
+                        // especially if this recipient is the "owner" (often indicated by absence of specific status in some versions)
+                        // or if we can match it.
+                        int responseStatus = appointment.getResponseStatus();
+                        String partstat = null;
+                        switch (responseStatus) {
+                            case 3: // respAccepted
+                                partstat = "ACCEPTED";
+                                break;
+                            case 4: // respDeclined
+                                partstat = "DECLINED";
+                                break;
+                            case 2: // respTentative
+                                partstat = "TENTATIVE";
+                                break;
+                            case 1: // respOrganized
+                                partstat = "ACCEPTED";
+                                break;
+                        }
+                        if (partstat != null && email != null && email.equalsIgnoreCase(senderEmail)) {
+                            attendee.append(";PARTSTAT=").append(partstat);
+                        } else {
+                            attendee.append(";PARTSTAT=NEEDS-ACTION");
+                        }
+                    }
+                } catch (Exception e) {
+                    // Fallback to NEEDS-ACTION if reflection fails
+                    attendee.append(";PARTSTAT=NEEDS-ACTION");
+                }
+                
+                attendee.append(";RSVP=TRUE");
+                attendee.append(":").append(email).append("\r\n");
+                ical.append(attendee.toString());
+            }
+        } catch (Exception ex) {
+            logger.warn("Failed to get recipients for appointment {}", uid, ex);
+        }
+
+        try {
             if (appointment.isRecurring()) {
                 byte[] structure = appointment.getRecurrenceStructure();
                 if (structure != null && structure.length > 0) {
@@ -1191,6 +1353,17 @@ public class PstConverter {
             }
         } catch (Exception ex) {
             logger.warn("Failed to get recurrence structure for appointment {}", uid, ex);
+        }
+
+        if (appointment.getReminderSet()) {
+            int delta = appointment.getReminderDelta();
+            String reminderSummary = coalesce("Reminder", appointment.getSubject());
+            ical.append("BEGIN:VALARM\r\n");
+            ical.append("ACTION:DISPLAY\r\n");
+            ical.append("SUMMARY:").append(escapeICalendar(reminderSummary)).append("\r\n");
+            ical.append("DESCRIPTION:").append(escapeICalendar(reminderSummary)).append("\r\n");
+            ical.append("TRIGGER:-PT").append(delta).append("M\r\n");
+            ical.append("END:VALARM\r\n");
         }
 
         ical.append("END:VEVENT\r\n");
@@ -1240,6 +1413,10 @@ public class PstConverter {
         if (description != null && !description.isEmpty()) {
             ical.append("DESCRIPTION:").append(escapeICalendar(description)).append("\r\n");
         }
+        String descriptionHTML = task.getBodyHTML();
+        if (descriptionHTML != null && !descriptionHTML.isEmpty()) {
+            ical.append("X-ALT-DESC;FMTTYPE=text/html:").append(escapeICalendar(descriptionHTML)).append("\r\n");
+        }
 
         Date start = task.getTaskStartDate();
         if (start != null) {
@@ -1286,6 +1463,34 @@ public class PstConverter {
 
         double percentComplete = task.getPercentComplete();
         ical.append("PERCENT-COMPLETE:").append((int) (percentComplete * 100)).append("\r\n");
+
+        try {
+            String[] categories = task.getColorCategories();
+            if (categories != null && categories.length > 0) {
+                StringBuilder categoriesBuilder = new StringBuilder("CATEGORIES:");
+                for (int i = 0; i < categories.length; i++) {
+                    if (i > 0) {
+                        categoriesBuilder.append(",");
+                    }
+                    categoriesBuilder.append(escapeICalendar(categories[i]));
+                }
+                categoriesBuilder.append("\r\n");
+                ical.append(categoriesBuilder.toString());
+            }
+        } catch (PSTException ex) {
+            logger.warn("Failed to get categories for task {}", uid, ex);
+        }
+
+        if (task.getReminderSet()) {
+            int delta = task.getReminderDelta();
+            String reminderSummary = coalesce("Reminder", task.getSubject());
+            ical.append("BEGIN:VALARM\r\n");
+            ical.append("ACTION:DISPLAY\r\n");
+            ical.append("SUMMARY:").append(escapeICalendar(reminderSummary)).append("\r\n");
+            ical.append("DESCRIPTION:").append(escapeICalendar(reminderSummary)).append("\r\n");
+            ical.append("TRIGGER:-PT").append(delta).append("M\r\n");
+            ical.append("END:VALARM\r\n");
+        }
 
         ical.append("END:VTODO\r\n");
         ical.append("END:VCALENDAR\r\n");
