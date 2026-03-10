@@ -373,6 +373,9 @@ public class PstConverter {
             }
             messageCount = convert(pstRootFolder, rootFolder, "\\", charset, skipEmptyFolders);
             watch.stop();
+            if (format == MailMessageFormat.MAILDIR && skipEmptyFolders) {
+                deleteEmptyMaildirFolders(outputDirectory);
+            }
         } catch (PSTException | MessagingException | IOException ex) {
             logger.error("Failed to convert PSTFile object.", ex);
             throw ex;
@@ -404,6 +407,60 @@ public class PstConverter {
      */
     public PstConvertResult convert(PSTFile pstFile, File outputDirectory, MailMessageFormat format, String encoding, boolean skipEmptyFolders, String includeFolder) throws PSTException, MessagingException, IOException {
         return convert(pstFile, outputDirectory, format, encoding, skipEmptyFolders, includeFolder, false);
+    }
+
+    private void deleteEmptyMaildirFolders(File dir) {
+        if (dir == null || !dir.isDirectory()) {
+            return;
+        }
+
+        File[] children = dir.listFiles();
+        if (children != null) {
+            for (File child : children) {
+                if (child.isDirectory()) {
+                    deleteEmptyMaildirFolders(child);
+                }
+            }
+        }
+
+        // After processing children, check if this directory is an empty Maildir
+        if (isEmptyMaildir(dir)) {
+            try {
+                org.apache.commons.io.FileUtils.deleteDirectory(dir);
+            } catch (IOException ex) {
+                logger.warn("Failed to delete empty Maildir directory: {}", dir.getAbsolutePath(), ex);
+            }
+        }
+    }
+
+    private boolean isEmptyMaildir(File dir) {
+        File cur = new File(dir, "cur");
+        File tmp = new File(dir, "tmp");
+        File newD = new File(dir, "new");
+
+        if (cur.isDirectory() && tmp.isDirectory() && newD.isDirectory()) {
+            File[] curFiles = cur.listFiles();
+            File[] tmpFiles = tmp.listFiles();
+            File[] newFiles = newD.listFiles();
+
+            boolean maildirSubdirsEmpty = (curFiles == null || curFiles.length == 0)
+                    && (tmpFiles == null || tmpFiles.length == 0)
+                    && (newFiles == null || newFiles.length == 0);
+
+            if (maildirSubdirsEmpty) {
+                File[] allFiles = dir.listFiles();
+                if (allFiles != null) {
+                    for (File f : allFiles) {
+                        String name = f.getName();
+                        if (!name.equals("cur") && !name.equals("tmp") && !name.equals("new")) {
+                            return false; // contains something else
+                        }
+                    }
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
