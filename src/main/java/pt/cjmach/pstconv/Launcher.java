@@ -88,6 +88,12 @@ public class Launcher implements Callable<Integer> {
     @Option(names = {"--skip-root"}, description = "Automatically skip the root folder of the PST hierarchy.")
     private boolean skipRootFolder = false;
     /**
+     *
+     */
+    @Option(names = {"--only-fixable"}, 
+            description = "Only process messages without transport headers (those affected by the recipient bug).")
+    private boolean onlyFixable = false;
+    /**
      * 
      */
     @Option(names = {"-v", "--version"}, versionHelp = true, description = "Print version and exit.")
@@ -116,6 +122,7 @@ public class Launcher implements Callable<Integer> {
         if (folderNamesMap != null) {
             converter.setFolderNamesMap(folderNamesMap);
         }
+        converter.setOnlyFixable(onlyFixable);
         try {
             PstConvertResult result = converter.convert(inputFile, outputDirectory, outputFormat, encoding, skipEmptyFolders, includeFolder, skipRootFolder);
             if (outputFormat != MailMessageFormat.TH_TXT) {

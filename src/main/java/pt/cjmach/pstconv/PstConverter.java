@@ -75,6 +75,7 @@ public class PstConverter {
     private static final SimpleDateFormat MESSAGE_DATE_FORMAT = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss"); // NOI18N
     
     private Map<String, String> folderNamesMap = Collections.emptyMap();
+    private boolean onlyFixable = false;
 
     /**
      * Name of the custom header added to each converted message to allow to
@@ -100,6 +101,15 @@ public class PstConverter {
         } else {
             this.folderNamesMap = folderNamesMap;
         }
+    }
+
+    /**
+     * Set the only fixable flag.
+     * 
+     * @param onlyFixable 
+     */
+    public void setOnlyFixable(boolean onlyFixable) {
+        this.onlyFixable = onlyFixable;
     }
 
     Store createStore(File directory, MailMessageFormat format, String encoding) {
@@ -486,6 +496,12 @@ public class PstConverter {
                 String errorMsg = "Failed to append message id {} to folder {}.";
                 PSTMessage pstMessage = (PSTMessage) child;
                 try {
+                    String transportHeaders = pstMessage.getTransportMessageHeaders();
+                    boolean hasTransportHeaders = transportHeaders != null && !transportHeaders.isEmpty();
+                    if (onlyFixable && (hasTransportHeaders || !hasMultipleRecipients(pstMessage))) {
+                        child = pstFolder.getNextChild();
+                        continue;
+                    }
                     if (pstMessage instanceof PSTContact && mailFolder instanceof MaildirFolder) {
                         exportContactToVCard((PSTContact) pstMessage, (MaildirFolder) mailFolder);
                         messageCount++;
@@ -575,6 +591,41 @@ public class PstConverter {
             }
         }
         return messageCount;
+    }
+
+    /**
+     * Checks if the message has multiple recipients of the same type (TO, CC, or BCC).
+     * These are the messages that were affected by the setRecipient bug.
+     * 
+     * @param message The PSTMessage to check.
+     * @return true if the message has multiple recipients of the same type, false otherwise.
+     * @throws PSTException
+     * @throws IOException
+     */
+    private boolean hasMultipleRecipients(PSTMessage message) throws PSTException, IOException {
+        int toCount = 0;
+        int ccCount = 0;
+        int bccCount = 0;
+        for (int i = 0; i < message.getNumberOfRecipients(); i++) {
+            PSTRecipient recipient = message.getRecipient(i);
+            switch (recipient.getRecipientType()) {
+                case PSTRecipient.MAPI_TO:
+                    toCount++;
+                    break;
+                case PSTRecipient.MAPI_CC:
+                    ccCount++;
+                    break;
+                case PSTRecipient.MAPI_BCC:
+                    bccCount++;
+                    break;
+                default:
+                    break;
+            }
+            if (toCount > 1 || ccCount > 1 || bccCount > 1) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
