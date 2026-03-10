@@ -37,6 +37,7 @@ import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.nio.charset.CoderResult;
 import java.nio.charset.MalformedInputException;
+import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Enumeration;
@@ -47,6 +48,7 @@ import java.util.TreeSet;
 import javax.activation.DataHandler;
 import javax.activation.DataSource;
 import javax.mail.*;
+import javax.mail.internet.AddressException;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.InternetHeaders;
 import javax.mail.internet.MailDateFormat;
@@ -70,6 +72,7 @@ public class PstConverter {
 
     private static final Logger logger = LoggerFactory.getLogger(PstConverter.class);
     private static final MailDateFormat RFC822_DATE_FORMAT = new MailDateFormat();
+    private static final SimpleDateFormat MESSAGE_DATE_FORMAT = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss"); // NOI18N
     
     private Map<String, String> folderNamesMap = Collections.emptyMap();
 
@@ -492,7 +495,7 @@ public class PstConverter {
                         }
                     } else if (pstMessage instanceof PSTAppointment && mailFolder instanceof MaildirFolder) {
                         if (isMeetingInvitation(pstMessage)) {
-                            messages[0] = convertToMimeMessage(pstMessage, charset);
+                            messages[0] = convertToMimeMessage(pstMessage, charset, path);
                             mailFolder.appendMessages(messages);
                         } else {
                             exportAppointmentToICalendar((PSTAppointment) pstMessage, (MaildirFolder) mailFolder);
@@ -502,7 +505,7 @@ public class PstConverter {
                         exportTaskToICalendar((PSTTask) pstMessage, (MaildirFolder) mailFolder);
                         messageCount++;
                     } else {
-                        messages[0] = convertToMimeMessage(pstMessage, charset);
+                        messages[0] = convertToMimeMessage(pstMessage, charset, path);
                         mailFolder.appendMessages(messages);
                         messageCount++;
                     }
@@ -624,6 +627,7 @@ public class PstConverter {
      *
      * @param message The PSTMessage object.
      * @param charset
+     * @param path
      * @return A new MimeMessage object.
      * @throws MessagingException
      * @throws IOException
@@ -632,10 +636,10 @@ public class PstConverter {
      * <a href="https://www.independentsoft.de/jpst/tutorial/exporttomimemessages.html">Export
      * to MIME messages (.eml files)</a>
      */
-    MimeMessage convertToMimeMessage(PSTMessage message, Charset charset) throws MessagingException, IOException, PSTException {
+    MimeMessage convertToMimeMessage(PSTMessage message, Charset charset, String path) throws MessagingException, IOException, PSTException {
         MimeMessage mimeMessage = new MimeMessage((Session) null);
 
-        convertMessageHeaders(message, mimeMessage, charset);
+        convertMessageHeaders(message, mimeMessage, charset, path);
         // Add custom header to easily track the original message from OST/PST file.
         mimeMessage.addHeader(DESCRIPTOR_ID_HEADER, Long.toString(message.getDescriptorNodeId()));
         mimeMessage.addHeader(DELIVERY_TIME_HEADER, Long.toString(extractInternalDate(message).getTime()));
@@ -687,7 +691,7 @@ public class PstConverter {
         return mimeMessage;
     }
 
-    void convertMessageHeaders(PSTMessage message, MimeMessage mimeMessage, Charset charset) throws IOException, MessagingException, PSTException {
+    void convertMessageHeaders(PSTMessage message, MimeMessage mimeMessage, Charset charset, String path) throws IOException, MessagingException, PSTException {
         String messageHeaders = message.getTransportMessageHeaders();
         if (messageHeaders != null && !messageHeaders.isEmpty()) {
             try (InputStream headersStream = new ByteArrayInputStream(messageHeaders.getBytes(charset))) {
@@ -730,18 +734,28 @@ public class PstConverter {
 
             for (int i = 0; i < message.getNumberOfRecipients(); i++) {
                 PSTRecipient recipient = message.getRecipient(i);
-                switch (recipient.getRecipientType()) {
-                    case PSTRecipient.MAPI_TO:
-                        mimeMessage.setRecipient(Message.RecipientType.TO, new InternetAddress(recipient.getEmailAddress(), recipient.getDisplayName()));
-                        break;
-                    case PSTRecipient.MAPI_CC:
-                        mimeMessage.setRecipient(Message.RecipientType.CC, new InternetAddress(recipient.getEmailAddress(), recipient.getDisplayName()));
-                        break;
-                    case PSTRecipient.MAPI_BCC:
-                        mimeMessage.setRecipient(Message.RecipientType.BCC, new InternetAddress(recipient.getEmailAddress(), recipient.getDisplayName()));
-                        break;
-                    default:
-                        break;
+                String emailAddress = recipient.getEmailAddress();
+                if (emailAddress != null && !emailAddress.isEmpty()) {
+                    try {
+                        InternetAddress address = new InternetAddress(emailAddress, recipient.getDisplayName());
+                        address.validate();
+                        switch (recipient.getRecipientType()) {
+                            case PSTRecipient.MAPI_TO:
+                                mimeMessage.addRecipient(Message.RecipientType.TO, address);
+                                break;
+                            case PSTRecipient.MAPI_CC:
+                                mimeMessage.addRecipient(Message.RecipientType.CC, address);
+                                break;
+                            case PSTRecipient.MAPI_BCC:
+                                mimeMessage.addRecipient(Message.RecipientType.BCC, address);
+                                break;
+                            default:
+                                break;
+                        }
+                    } catch (AddressException ex) {
+                        logger.warn("[{}] [{}] Skipping invalid recipient email address: {}", 
+                                MESSAGE_DATE_FORMAT.format(extractInternalDate(message)), path, emailAddress);
+                    }
                 }
             }
         }
