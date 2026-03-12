@@ -144,6 +144,11 @@
             <artifactId>java-libpst</artifactId>
             <version>0.9.3</version>
         </dependency>
+		<dependency>
+			<groupId>com.github.bbottema</groupId>
+			<artifactId>rtf-to-html</artifactId>
+			<version>1.1.1</version>
+		</dependency>
         <dependency>
             <groupId>org.mnode.mstor</groupId>
             <artifactId>mstor</artifactId>

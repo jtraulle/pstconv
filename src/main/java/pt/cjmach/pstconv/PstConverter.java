@@ -15,6 +15,8 @@
  */
 package pt.cjmach.pstconv;
 
+import org.bbottema.rtftohtml.RTF2HTMLConverter;
+import org.bbottema.rtftohtml.impl.RTF2HTMLConverterRFCCompliant;
 import pt.cjmach.pstconv.mail.EmlStore;
 import pt.cjmach.pstconv.mail.MaildirFolder;
 import pt.cjmach.pstconv.mail.MaildirStore;
@@ -555,7 +557,15 @@ public class PstConverter {
                 try {
                     String transportHeaders = pstMessage.getTransportMessageHeaders();
                     boolean hasTransportHeaders = transportHeaders != null && !transportHeaders.isEmpty();
-                    if (onlyFixable && (hasTransportHeaders || !hasMultipleRecipients(pstMessage))) {
+                    String messageBody = pstMessage.getBody();
+                    boolean hasMessageBody = messageBody != null && !messageBody.isEmpty();
+                    String messageBodyHTML = pstMessage.getBodyHTML();
+                    boolean hasMessageBodyHTML = messageBodyHTML != null && !messageBodyHTML.isEmpty();
+
+                    if (onlyFixable &&(
+                            (hasTransportHeaders || !hasMultipleRecipients(pstMessage))
+                            && (hasMessageBodyHTML || hasMessageBody)
+                    )) {
                         child = pstFolder.getNextChild();
                         continue;
                     }
@@ -771,7 +781,7 @@ public class PstConverter {
 
         MimeMultipart relatedMultipart = new MimeMultipart("related"); // NOI18N
         
-        convertMessageBody(message, relatedMultipart);
+        convertMessageBody(message, relatedMultipart, path);
         MimeMultipart rootMultipart = new MimeMultipart("mixed"); // NOI18N
         convertAttachments(message, rootMultipart, relatedMultipart);
         
@@ -869,9 +879,10 @@ public class PstConverter {
         }
     }
 
-    void convertMessageBody(PSTMessage message, MimeMultipart relatedMultipart) throws IOException, MessagingException {
+    void convertMessageBody(PSTMessage message, MimeMultipart relatedMultipart, String path) throws IOException, MessagingException, PSTException {
         String messageBody = message.getBody();
         String messageBodyHTML = message.getBodyHTML();
+        String messageBodyRTF = message.getRTFBody();
 
         if (messageBodyHTML != null && !messageBodyHTML.isEmpty()) {
             MimeMultipart alternativeMultipart = new MimeMultipart("alternative"); // NOI18N
@@ -893,7 +904,24 @@ public class PstConverter {
             MimeBodyPart textBodyPart = new MimeBodyPart();
             textBodyPart.setText(messageBody);
             relatedMultipart.addBodyPart(textBodyPart);
+        } else if (messageBodyRTF != null && !messageBodyRTF.isEmpty()) {
+            logger.info("[{}] [{}] RTF body",
+                    MESSAGE_DATE_FORMAT.format(extractInternalDate(message)), path);
+            RTF2HTMLConverter converter = RTF2HTMLConverterRFCCompliant.INSTANCE;
+            String messageBodyRTFtoHTML = converter.rtf2html(messageBodyRTF);
+
+            MimeMultipart alternativeMultipart = new MimeMultipart("alternative"); // NOI18N
+
+            MimeBodyPart htmlBodyPart = new MimeBodyPart();
+            htmlBodyPart.setDataHandler(new DataHandler(new ByteArrayDataSource(messageBodyRTFtoHTML, "text/html"))); // NOI18N
+            alternativeMultipart.addBodyPart(htmlBodyPart);
+
+            MimeBodyPart alternativeBodyPart = new MimeBodyPart();
+            alternativeBodyPart.setContent(alternativeMultipart);
+            relatedMultipart.addBodyPart(alternativeBodyPart);
         } else {
+            logger.warn("[{}] [{}] !!! Empty body",
+                    MESSAGE_DATE_FORMAT.format(extractInternalDate(message)), path);
             MimeBodyPart textBodyPart = new MimeBodyPart();
             textBodyPart.setText("");
             textBodyPart.addHeaderLine("Content-Type: text/plain; charset=\"utf-8\""); // NOI18N
